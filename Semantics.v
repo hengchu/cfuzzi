@@ -1,6 +1,5 @@
 Require Export Coq.Reals.Reals.
 Require Export Fourier.
-Require Import Even Div2 Wf_nat.
 
 Require Export Random.Prelude.
 Require Export Random.Prog.
