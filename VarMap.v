@@ -1,6 +1,6 @@
 Require Import Coq.FSets.FMapWeakList.
 Require Import Coq.Structures.DecidableType.
-Require Export Syntax.
+Require Export VariableDefinitions.
 
 Module VarDec <: DecidableType.
   Definition t := var.
@@ -27,12 +27,4 @@ Module VarDec <: DecidableType.
   Definition eq_dec := string_dec.
 End VarDec.
 
-Import VarDec.
 Module VarMap := FMapWeakList.Make(VarDec).
-
-Open Scope string_scope.
-
-Check (VarMap.empty).
-Eval compute in (VarMap.add "x" (v_int 1%Z) (@VarMap.empty val)).
-Eval compute in (VarMap.find "x" (VarMap.add "x" (v_int 1%Z) (@VarMap.empty val))).
-Eval compute in (VarMap.find "y" (VarMap.add "x" (v_int 1%Z) (@VarMap.empty val))).

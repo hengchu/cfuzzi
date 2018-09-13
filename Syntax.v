@@ -1,5 +1,9 @@
 Require Export Coq.Strings.String.
 Require Export ZArith.
+Require Export Coq.Numbers.BinNums.
+Require Import Coq.Lists.List.
+Require Export VariableDefinitions.
+Require Export VarMap.
 
 Inductive tau :=
 | t_int
@@ -11,8 +15,6 @@ Inductive val :=
 
 Coercion v_int : Z >-> val.
 Coercion v_bool : bool >-> val.
-
-Definition var := string.
 
 Inductive expr : Type :=
 | e_lit : Z -> expr
@@ -53,7 +55,49 @@ Notation "x '<-' e" := (i_base_instr (bi_assign x e)) (at level 65).
 Notation "x '<$-' 'lap(' w ',' e ')'" := (i_base_instr (bi_laplace x w e)) (at level 65).
 
 Example x : var := "x"%string.
+Example y : var := "y"%string.
 Check (x <$- lap(1, 2%Z)).
 Check (x <- 2%Z).
 Check (If (e_eq x x) then [ x <$- lap(1, 2%Z) ] else [x <- 2%Z] end).
 Check (While (e_lt x 1%Z) do [ x <- (e_add x 1%Z) ] end).
+
+Definition s_tau := (N * tau)%type.
+
+Definition env := VarMap.t s_tau.
+Definition empty : env := VarMap.empty s_tau.
+Definition extend (v : var) (s : N) (t : tau) (g : env) :=
+  VarMap.add v (s, t) g.
+
+Inductive wf_env : env -> Prop :=
+| wf_env_empty : wf_env empty
+| wf_env_add : forall v st g, ~(VarMap.In v g) -> wf_env g -> wf_env (VarMap.add v st g).
+
+Hint Constructors wf_env.
+
+Notation "x ':_(' s ')' t ':+:' g" := (extend x s t g) (at level 65, right associativity).
+
+Check (x :_(1) t_int :+: empty).
+Check (x :_(0) t_bool :+: y :_(1) t_int :+: empty).
+
+Eval compute in ( VarMap.mem x (empty) ).
+Eval compute in ( VarMap.mem x (x :_(1) t_int :+: empty) ).
+
+Example test1: wf_env (x :_(1) t_int :+: empty).
+Proof.
+  constructor.
+  - intro contra.
+    Search VarMap.In.
+    apply VarMap.mem_1 in contra; vm_compute in contra; inversion contra.
+  - constructor.
+Qed.
+
+Example test2: wf_env (x :_(1) t_int :+: y :_(1) t_bool :+: empty).
+Proof.
+  constructor.
+  - intro contra.
+    apply VarMap.mem_1 in contra; vm_compute in contra; inversion contra.
+  - constructor.
+    + intro contra.
+      apply VarMap.mem_1 in contra; vm_compute in contra; inversion contra.
+    + constructor.
+Qed.
