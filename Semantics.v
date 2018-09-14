@@ -10,7 +10,6 @@ Require Export VariableDefinitions.
 Require Export VarMap.
 Require Export Syntax.
 
-
 Module Type Embedding.
 Include Universe.
 
@@ -175,3 +174,83 @@ Inductive step_base_instr : memory -> base_instr -> distr memory -> Prop :=
         (bi_assign x e)
         (Mlet (Laplace (IZR w) (IZR_gt_0 wgt0) z)
               (fun v => Munit (VarMap.add x (v_int v) m))).
+
+Inductive step_instr : memory -> instr -> distr memory -> Prop :=
+| step_i_base_isntr : forall m bi m',
+    step_base_instr m bi m' -> step_instr m (i_base_instr bi) m'
+| step_i_cond_true : forall m e ct cf mt,
+    step_cmd (Munit m) ct mt
+    -> m [[e]] // (v_bool true)
+    -> step_instr m (i_cond e ct cf) mt
+| step_i_cond_false: forall m e ct cf mf,
+    step_cmd (Munit m) cf mf
+    -> m [[e]] // (v_bool false)
+    -> step_instr m (i_cond e ct cf) mf
+| step_i_while_end : forall m m' e c,
+    m [[e]] // (v_bool false)
+    -> eq_distr (Munit m) m'
+    -> step_instr m (i_while e c) m'
+| step_i_while_loop : forall m e c m' m'',
+    m [[e]] // (v_bool true)
+    -> step_cmd (Munit m) c m'
+    -> step_cmd m' [i_while e c] m''
+    -> step_instr m (i_while e c) m''
+with step_cmd : distr memory -> cmd -> distr memory -> Prop :=
+     | step_cmd_nil : forall m, step_cmd m List.nil m
+     | step_cmd_cons : forall m i is m' m'',
+         step_instr m i m'
+         -> step_cmd m' is m''
+         -> step_cmd (Munit m) (i :: is) m''.
+
+Hint Constructors bigstep_expr.
+Hint Constructors step_base_instr.
+Hint Constructors step_instr.
+Hint Constructors step_cmd.
+
+Axiom memory_equiv_implies_eq_distr :
+  forall (m1 m2 : memory), VarMap_equiv m1 m2 -> eq_distr (Munit m1) (Munit m2).
+
+Example prog1 :=
+  [While (e_lt 0%Z x) do [x <- (e_minus x 1%Z)] end].
+Example mem1 := VarMap.add x (v_int 1%Z) (VarMap.empty val).
+Example mem1' := VarMap.add x (v_int 0%Z) (VarMap.empty val).
+Example step_prog1:
+  exists m_final,
+    step_cmd (Munit mem1) prog1 m_final /\ eq_distr (Munit mem1') m_final.
+Proof.
+  eexists; split.
+  - unfold prog1.
+    eapply step_cmd_cons; eauto.
+    eapply step_i_while_loop.
+    assert (mem1 [[x]] // (v_int 1)). {
+      unfold mem1; constructor; auto.
+    }
+    assert (mem1 [[e_lit 0]] // (v_int 0)). {
+      constructor.
+    }
+    replace true with (0 <? 1)%Z; auto.
+    eapply step_cmd_cons; eauto.
+    constructor; constructor.
+    assert (mem1 [[x]] // (v_int 1)). {
+      unfold mem1; constructor; auto.
+    }
+    assert (mem1 [[1%Z]] // (v_int 1)). {
+      constructor.
+    }
+    eapply bigstep_expr_minus; eauto.
+    simpl.
+    econstructor; eauto.
+    apply step_i_while_end; auto.
+    pose (mem2 := VarMap.add x (v_int 0%Z) mem1).
+    assert (mem2 [[x]] // 0%Z). {
+      constructor; auto.
+    }
+    assert (mem2 [[0%Z]] // 0%Z). {
+      auto.
+    }
+    replace false with (0 <? 0)%Z; auto.
+  - apply memory_equiv_implies_eq_distr.
+    unfold VarMap_equiv.
+    intros y.
+    destruct (string_dec x y); subst; auto.
+Qed.
