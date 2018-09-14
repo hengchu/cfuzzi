@@ -111,3 +111,63 @@ Section LaplaceDistr.
 
 End LaplaceDistr.
 End Laplace.
+
+Module Semantics (E : Embedding).
+
+Module LAP := Laplace(E).
+Import E.
+Import LAP.
+Import LAP.RP.
+Import LAP.RP.PP.
+Import LAP.RP.PP.MP.
+Import LAP.RP.PP.MP.UP.
+
+Definition memory := VarMap.t val.
+
+Reserved Notation "m '[[' e ']]' '//' v" (at level 65, no associativity).
+Inductive bigstep_expr : memory -> expr -> val -> Prop :=
+| bigstep_expr_lit : forall m z, m [[e_lit z]] // v_int z
+| bigstep_expr_var : forall m x v, VarMap.find x m = Some v
+                              -> m [[e_var x]] // v
+| bigstep_expr_add : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                      -> m [[e2]] // (v_int z2)
+                                      -> m [[e_add e1 e2]] // (v_int (z1 + z2))
+| bigstep_expr_minus : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                        -> m [[e2]] // (v_int z2)
+                                        -> m [[e_minus e1 e2]] // (v_int (z1 - z2))
+| bigstep_expr_mult : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                       -> m [[e2]] // (v_int z2)
+                                       -> m [[e_mult e1 e2]] // (v_int (z1 * z2))
+| bigstep_expr_div : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                      -> m [[e2]] // (v_int z2)
+                                      -> m [[e_div e1 e2]] // (v_int (z1 / z2))
+| bigstep_expr_lt : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                     -> m [[e2]] // (v_int z2)
+                                     -> m [[e_lt e1 e2]] // (v_bool (z1 <? z2)%Z)
+| bigstep_expr_eq : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
+                                     -> m [[e2]] // (v_int z2)
+                                     -> m [[e_eq e1 e2]] // (v_bool (z1 =? z2)%Z)
+| bigstep_expr_and : forall m e1 e2 b1 b2, m [[e1]] // (v_bool b1)
+                                      -> m [[e2]] // (v_bool b2)
+                                      -> m [[e_and e1 e2]] // (v_bool (b1 && b2))
+| bigstep_expr_or : forall m e1 e2 b1 b2, m [[e1]] // (v_bool b1)
+                                     -> m [[e2]] // (v_bool b2)
+                                     -> m [[e_or e1 e2]] // (v_bool (b1 || b2))
+where "m '[[' e ']]' '//' v" := (bigstep_expr m e v).
+
+Lemma IZR_gt_0: forall z, (z > 0)%Z -> (IZR z > 0)%R.
+Proof.
+  intros z Hzgt0.
+  apply Z.gt_lt in Hzgt0.
+  apply Rlt_gt.
+  replace (0%R) with (IZR 0%Z); auto.
+  apply IZR_lt; auto.
+Qed.
+
+Inductive step_base_instr : memory -> base_instr -> distr memory -> Prop :=
+| step_bi_assign : forall x e m ve,
+    m [[e]] // ve
+    -> step_base_instr m (bi_assign x e) (Munit (VarMap.add x ve m))
+| step_bi_laplace : forall x {w} e m ve (wgt0 : (w > 0)%Z),
+    m [[e]] // ve
+    -> step_base_instr m (bi_assign x e) (Mlet (Laplace )
