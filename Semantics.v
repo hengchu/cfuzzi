@@ -155,7 +155,7 @@ Inductive bigstep_expr : memory -> expr -> val -> Prop :=
                                      -> m [[e_or e1 e2]] // (v_bool (b1 || b2))
 where "m '[[' e ']]' '//' v" := (bigstep_expr m e v).
 
-Lemma IZR_gt_0: forall z, (z > 0)%Z -> (IZR z > 0)%R.
+Lemma IZR_gt_0: forall {z}, (z > 0)%Z -> (IZR z > 0)%R.
 Proof.
   intros z Hzgt0.
   apply Z.gt_lt in Hzgt0.
@@ -168,6 +168,10 @@ Inductive step_base_instr : memory -> base_instr -> distr memory -> Prop :=
 | step_bi_assign : forall x e m ve,
     m [[e]] // ve
     -> step_base_instr m (bi_assign x e) (Munit (VarMap.add x ve m))
-| step_bi_laplace : forall x {w} e m ve (wgt0 : (w > 0)%Z),
-    m [[e]] // ve
-    -> step_base_instr m (bi_assign x e) (Mlet (Laplace )
+| step_bi_laplace : forall x {w} e m z (wgt0 : (w > 0)%Z),
+    m [[e]] // (v_int z)
+    -> step_base_instr
+        m
+        (bi_assign x e)
+        (Mlet (Laplace (IZR w) (IZR_gt_0 wgt0) z)
+              (fun v => Munit (VarMap.add x (v_int v) m))).
