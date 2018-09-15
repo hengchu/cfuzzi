@@ -3,6 +3,7 @@ Require Import Coq.Logic.JMeq.
 Require Import Coq.Lists.List.
 Require Import Program.
 Require Import Coq.Program.Equality.
+Require Import Coq.Logic.FunctionalExtensionality.
 
 Section Hlist.
 
@@ -77,6 +78,10 @@ Proof.
   - right. exists mem. reflexivity.
 Qed.
 
+(* I don't think this is provable in Coq *)
+Axiom member_inj : forall {A : Type} (elm1 elm2 : A) ls,
+    member elm1 ls = member elm2 ls -> elm1 = elm2.
+
 Lemma m_next_congr : forall {A : Type} elm1 elm2 x ls
                             (mem1 : @member A elm1 ls)
                             (mem2 : @member A elm2 ls),
@@ -84,9 +89,13 @@ Lemma m_next_congr : forall {A : Type} elm1 elm2 x ls
 Proof.
   intros A elm1 elm2 x ls mem1 mem2 Heq.
   dependent destruction Heq.
-  (* WHY doesn't rewrite work here???? *)
-  Fail (rewrite Heq).
-Admitted.
+  assert (elm1 = elm2). {
+    eapply member_inj; eauto.
+  }
+  subst.
+  rewrite x.
+  reflexivity.
+Qed.
 
 Lemma hlist_get_update_same : forall {A:Type} {f : A -> Type} {elm:A} {ix : list A} mem ls v,
     @h_get A f elm ix (h_weak_update v ls mem) mem = v.
