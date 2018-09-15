@@ -13,6 +13,15 @@ Inductive val :=
 | v_int : Z -> val
 | v_bool : bool -> val.
 
+Search (bool -> bool -> bool).
+
+Definition val_eqb (v1 v2 : val) :=
+  match v1, v2 with
+  | v_int z1, v_int z2 => (z1 =? z2)%Z
+  | v_bool b1, v_bool b2 => (Bool.eqb b1 b2)
+  | _, _ => false
+  end.
+
 Coercion v_int : Z >-> val.
 Coercion v_bool : bool >-> val.
 

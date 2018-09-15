@@ -29,3 +29,7 @@ End VarDec.
 
 Module VarMap := FMapWeakList.Make(VarDec).
 Export VarMap.
+
+Lemma Equiv_trans : forall {A} m1 m2 m3 R,
+    @Equiv A R m1 m2 -> @Equiv A R m2 m3 -> @Equiv A R m1 m3.
+Admitted.
