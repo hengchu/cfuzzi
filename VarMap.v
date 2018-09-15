@@ -28,6 +28,4 @@ Module VarDec <: DecidableType.
 End VarDec.
 
 Module VarMap := FMapWeakList.Make(VarDec).
-
-Definition VarMap_equiv {A : Type} (m1 m2 : VarMap.t A) : Prop :=
-  forall x, VarMap.find x m1 = VarMap.find x m2.
+Export VarMap.

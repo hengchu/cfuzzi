@@ -208,7 +208,7 @@ Hint Constructors step_instr.
 Hint Constructors step_cmd.
 
 Axiom memory_equiv_implies_eq_distr :
-  forall (m1 m2 : memory), VarMap_equiv m1 m2 -> eq_distr (Munit m1) (Munit m2).
+  forall (m1 m2 : memory), VarMap.Equiv (fun v1 v2 => v1=v2) m1 m2 -> eq_distr (Munit m1) (Munit m2).
 
 Example prog1 :=
   [While (e_lt 0%Z x) do [x <- (e_minus x 1%Z)] end].
@@ -250,7 +250,17 @@ Proof.
     }
     replace false with (0 <? 0)%Z; auto.
   - apply memory_equiv_implies_eq_distr.
-    unfold VarMap_equiv.
-    intros y.
-    destruct (string_dec x y); subst; auto.
+    unfold VarMap.Equiv.
+    split.
+    + intros y.
+      destruct (string_dec x y); subst; split; auto.
+    + intros y e1 e2 Hmaps1 Hmaps2.
+      apply VarMap.find_1 in Hmaps1.
+      apply VarMap.find_1 in Hmaps2.
+      unfold find in *; simpl in *.
+      destruct (VarDec.eq_dec y x); subst.
+      inversion Hmaps1; inversion Hmaps2; subst; auto.
+      inversion Hmaps1.
 Qed.
+
+End Semantics.
