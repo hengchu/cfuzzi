@@ -77,14 +77,16 @@ Proof.
   - right. exists mem. reflexivity.
 Qed.
 
-Lemma m_next_congr : forall {A : Type} elm x ls
-                            (mem1 : @member A elm ls)
-                            (mem2 : @member A elm ls),
+Lemma m_next_congr : forall {A : Type} elm1 elm2 x ls
+                            (mem1 : @member A elm1 ls)
+                            (mem2 : @member A elm2 ls),
     mem1 ~= mem2 -> m_next x mem1 ~= m_next x mem2.
 Proof.
-  intros A elm x ls mem1 mem2 Heq.
-  rewrite Heq. reflexivity.
-Qed.
+  intros A elm1 elm2 x ls mem1 mem2 Heq.
+  dependent destruction Heq.
+  (* WHY doesn't rewrite work here???? *)
+  Fail (rewrite Heq).
+Admitted.
 
 Lemma hlist_get_update_same : forall {A:Type} {f : A -> Type} {elm:A} {ix : list A} mem ls v,
     @h_get A f elm ix (h_weak_update v ls mem) mem = v.
@@ -101,21 +103,21 @@ Qed.
 Lemma hlist_get_update_different :
   forall {A : Type}
          {f : A -> Type}
-         {elm:A}
+         {elm1 elm2:A}
          {ix : list A}
          ls v1 v2
-         (mem1 : member elm ix)
-         (mem2 : member elm ix),
+         (mem1 : member elm1 ix)
+         (mem2 : member elm2 ix),
     ~(JMeq mem1 mem2)
-    -> @h_get A f elm ix ls mem2 = v2
-    -> @h_get A f elm ix (h_weak_update v1 ls mem1) mem2 = v2.
+    -> @h_get A f elm2 ix ls mem2 = v2
+    -> @h_get A f elm2 ix (h_weak_update v1 ls mem1) mem2 = v2.
 Proof.
-  intros A f elm ix.
+  intros A f elm1 elm2 ix.
   dependent induction ls.
   - intros v1 v2 mem1; inversion mem1.
   - intros v1 v2 mem1 mem2 Hneq Hget2.
-    destruct (elim_mem elm x ls mem1) as [Hfirst1 | Hnext1];
-    destruct (elim_mem elm x ls mem2) as [Hfirst2 | Hnext2].
+    destruct (elim_mem elm1 x ls mem1) as [Hfirst1 | Hnext1];
+    destruct (elim_mem elm2 x ls mem2) as [Hfirst2 | Hnext2].
     + inversion Hfirst1; subst.
       inversion Hfirst2; subst.
       simpl.
@@ -137,6 +139,5 @@ Proof.
       apply IHls; auto.
       intros contra.
       apply Hneq.
-      rewrite contra.
-      auto.
+      apply m_next_congr; auto.
 Qed.
