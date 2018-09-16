@@ -7,8 +7,10 @@ Require Export Random.Ubase.
 Require Export Random.Probas.
 
 Require Export VariableDefinitions.
-Require Export VarMap.
 Require Export Syntax.
+Require Export Hlist.
+
+Require Export Program.
 
 Module Type Embedding.
 Include Universe.
@@ -121,38 +123,27 @@ Import LAP.RP.PP.
 Import LAP.RP.PP.MP.
 Import LAP.RP.PP.MP.UP.
 
-Definition memory := VarMap.t val.
+Definition memory (ts : list tau) := hlist tau tau_denote ts.
+Definition mem_get {t ts} (m : memory ts) (x : var t ts) : tau_denote t := h_get m x.
+Definition mem_set {t ts} (m : memory ts) (x : var t ts) (v : tau_denote t) : memory ts :=
+  h_weak_update v m x.
 
-Reserved Notation "m '[[' e ']]' '//' v" (at level 65, no associativity).
-Inductive bigstep_expr : memory -> expr -> val -> Prop :=
-| bigstep_expr_lit : forall m z, m [[e_lit z]] // v_int z
-| bigstep_expr_var : forall m x v, VarMap.find x m = Some v
-                              -> m [[e_var x]] // v
-| bigstep_expr_add : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                      -> m [[e2]] // (v_int z2)
-                                      -> m [[e_add e1 e2]] // (v_int (z1 + z2))
-| bigstep_expr_minus : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                        -> m [[e2]] // (v_int z2)
-                                        -> m [[e_minus e1 e2]] // (v_int (z1 - z2))
-| bigstep_expr_mult : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                       -> m [[e2]] // (v_int z2)
-                                       -> m [[e_mult e1 e2]] // (v_int (z1 * z2))
-| bigstep_expr_div : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                      -> m [[e2]] // (v_int z2)
-                                      -> m [[e_div e1 e2]] // (v_int (z1 / z2))
-| bigstep_expr_lt : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                     -> m [[e2]] // (v_int z2)
-                                     -> m [[e_lt e1 e2]] // (v_bool (z1 <? z2)%Z)
-| bigstep_expr_eq : forall m e1 e2 z1 z2, m [[e1]] // (v_int z1)
-                                     -> m [[e2]] // (v_int z2)
-                                     -> m [[e_eq e1 e2]] // (v_bool (z1 =? z2)%Z)
-| bigstep_expr_and : forall m e1 e2 b1 b2, m [[e1]] // (v_bool b1)
-                                      -> m [[e2]] // (v_bool b2)
-                                      -> m [[e_and e1 e2]] // (v_bool (b1 && b2))
-| bigstep_expr_or : forall m e1 e2 b1 b2, m [[e1]] // (v_bool b1)
-                                     -> m [[e2]] // (v_bool b2)
-                                     -> m [[e_or e1 e2]] // (v_bool (b1 || b2))
-where "m '[[' e ']]' '//' v" := (bigstep_expr m e v).
+Program Fixpoint sem_expr
+        {t : tau}
+        {ts : list tau}
+        (m : memory ts) (e : expr t ts) : tau_denote t :=
+  match e with
+  | e_lit _ v => v
+  | e_var _ _ x => mem_get m x
+  | e_add _ e1 e2 => (sem_expr m e1 + sem_expr m e2)%Z
+  | e_minus _ e1 e2 => (sem_expr m e1 - sem_expr m e2)%Z
+  | e_mult _ e1 e2 => (sem_expr m e1 * sem_expr m e2)%Z
+  | e_div _ e1 e2 => (sem_expr m e1 / sem_expr m e2)%Z
+  | e_lt _ e1 e2 => (sem_expr m e1 <? sem_expr m e2)%Z
+  | e_eq _ e1 e2 => (sem_expr m e1 =? sem_expr m e2)%Z
+  | e_and _ e1 e2 => andb (sem_expr m e1) (sem_expr m e2)
+  | e_or _ e1 e2 => orb (sem_expr m e1) (sem_expr m e2)
+  end.
 
 Lemma IZR_gt_0: forall {z}, (z > 0)%Z -> (IZR z > 0)%R.
 Proof.
@@ -163,57 +154,50 @@ Proof.
   apply IZR_lt; auto.
 Qed.
 
-Inductive step_base_instr : memory -> base_instr -> distr memory -> Prop :=
-| step_bi_assign : forall x e m ve,
-    m [[e]] // ve
-    -> step_base_instr m (bi_assign x e) (Munit (VarMap.add x ve m))
-| step_bi_laplace : forall x {w} e m z (wgt0 : (w > 0)%Z),
-    m [[e]] // (v_int z)
-    -> step_base_instr
-        m
-        (bi_assign x e)
-        (Mlet (Laplace (IZR w) (IZR_gt_0 wgt0) z)
-              (fun v => Munit (VarMap.add x (v_int v) m))).
+Definition step_base_instr {ts} (m: memory ts) (c : base_instr ts)
+  : distr (memory ts) :=
+  match c in base_instr ts' return (memory ts' -> distr (memory ts')) with
+  | bi_assign _ _ x e
+    => fun m => Munit (mem_set m x (sem_expr m e))
+  | bi_laplace _ c x c_gt_0 e
+    => fun m => Mlet (Laplace (IZR c) (IZR_gt_0 c_gt_0) (sem_expr m e))
+                 (fun v => Munit (mem_set m x v))
+  end m.
 
-Inductive step_instr : memory -> instr -> distr memory -> Prop :=
-| step_i_base_isntr : forall m bi m',
-    step_base_instr m bi m' -> step_instr m (i_base_instr bi) m'
-| step_i_cond_true : forall m e ct cf mt,
-    step_cmd (Munit m) ct mt
-    -> m [[e]] // (v_bool true)
-    -> step_instr m (i_cond e ct cf) mt
-| step_i_cond_false: forall m e ct cf mf,
-    step_cmd (Munit m) cf mf
-    -> m [[e]] // (v_bool false)
-    -> step_instr m (i_cond e ct cf) mf
-| step_i_while_end : forall m m' e c,
-    m [[e]] // (v_bool false)
-    -> eq_distr (Munit m) m'
-    -> step_instr m (i_while e c) m'
-| step_i_while_loop : forall m e c m' m'',
-    m [[e]] // (v_bool true)
-    -> step_cmd (Munit m) c m'
-    -> step_cmd m' [i_while e c] m''
-    -> step_instr m (i_while e c) m''
-with step_cmd : distr memory -> cmd -> distr memory -> Prop :=
-     | step_cmd_nil : forall m, step_cmd m List.nil m
-     | step_cmd_cons : forall m i is m' m'',
-         step_instr m i m'
-         -> step_cmd m' is m''
-         -> step_cmd (Munit m) (i :: is) m''.
+Definition step_cmd {ts} (m: memory ts) (c: cmd ts)
+  : ((cmd ts) * distr (memory ts)).
+  destruct c eqn:Hcmd.
+  - apply ([]%list, Munit m).
+  - destruct i eqn:Hinstr.
+    + pose (m' := step_base_instr m b).
+      apply (l, m').
+    + destruct (sem_expr m e) eqn:Hcond.
+      * pose (cs := (l0 ++ l)%list).
+        apply (cs, (Munit m)).
+      * pose (cs := (l1 ++ l)%list).
+        apply (cs, (Munit m)).
+    + destruct (sem_expr m e) eqn:Hguard.
+      * pose (cs := (l0 ++ c)%list).
+        apply (cs, (Munit m)).
+      * apply (l, (Munit m)).
+Defined.
 
-Hint Constructors bigstep_expr.
-Hint Constructors step_base_instr.
-Hint Constructors step_instr.
-Hint Constructors step_cmd.
+Definition step_cmd_lifted {ts} (m : distr (memory ts)) (c : cmd ts)
+  : ((cmd ts) * distr (memory ts)).
 
-Axiom memory_equiv_implies_eq_distr :
-  forall (m1 m2 : memory), VarMap.Equiv (fun v1 v2 => v1=v2) m1 m2 -> eq_distr (Munit m1) (Munit m2).
+Fixpoint step_trans {ts} (m: memory ts) (c: cmd ts) (n : nat)
+  : ((cmd ts) * distr (memory ts)) :=
+  match n with
+  | O => (c, Munit m)
+  | S n' => match step_trans m c n' with
+           | (c', m') => step_cmd m
 
+Example x : var t_int ([t_int]%list)  := m_first t_int List.nil.
 Example prog1 :=
-  [While (e_lt 0%Z x) do [x <- (e_minus x 1%Z)] end].
-Example mem1 := VarMap.add x (v_int 1%Z) (VarMap.empty val).
-Example mem1' := VarMap.add x (v_int 0%Z) (VarMap.empty val).
+  [ While (e_lt (e_lit 0%Z) (e_var x)) do [x <- (e_minus (e_var x) (e_lit 1%Z))] end ]%list.
+Example mem1 := @h_cons tau tau_denote t_int []%list 1%Z h_nil.
+Example mem1' := @h_cons tau tau_denote t_int []%list 0%Z h_nil.
+
 Example step_prog1:
   exists m_final,
     step_cmd (Munit mem1) prog1 m_final /\ eq_distr (Munit mem1') m_final.
