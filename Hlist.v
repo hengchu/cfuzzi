@@ -11,6 +11,9 @@ Variable A : Type.
 Variable f : A -> Type.
 Variable f_eqb : forall (x : A), f x -> f x -> bool.
 
+Variable f_eqb_iff_eq : forall {x: A} (v1 v2 : f x),
+    f_eqb x v1 v2 = true <-> v1 = v2.
+
 Inductive hlist : list A -> Type :=
 | h_nil : hlist nil
 | h_cons : forall (x : A) (ls : list A), f x -> hlist ls -> hlist (x :: ls).
@@ -56,6 +59,43 @@ Program Fixpoint h_eqb {ix : list A} (ls : hlist ix) {struct ls}
                         | h_cons _ _ v2 tl2 => andb (f_eqb _ v v2) (h_eqb tl tl2)
                         end
   end.
+
+Lemma h_eqb_iff_eq : forall {ix} (ls1 ls2 : hlist ix),
+    h_eqb ls1 ls2 = true <-> ls1 = ls2.
+Proof.
+  intros ix.
+  induction ix.
+  - intros ls1 ls2.
+    split.
+    + intros H_eqb.
+      dependent destruction ls1.
+      dependent destruction ls2.
+      reflexivity.
+    + intros Heq.
+      subst.
+      dependent destruction ls2.
+      reflexivity.
+  - intros ls1 ls2.
+    split.
+    + intros H_eqb.
+      dependent destruction ls1;
+        dependent destruction ls2.
+      simpl in H_eqb.
+      Search ((_ && _)%bool = true).
+      apply Bool.andb_true_iff in H_eqb.
+      destruct H_eqb as [Heq1 Heq2].
+      apply IHix in Heq2.
+      rewrite Heq2.
+      f_equal.
+      apply f_eqb_iff_eq; auto.
+    + intros H_eq.
+      subst.
+      dependent destruction ls2.
+      simpl. apply Bool.andb_true_iff.
+      split.
+      * apply f_eqb_iff_eq; auto.
+      * apply IHix; auto.
+Qed.
 
 End Hlist.
 
