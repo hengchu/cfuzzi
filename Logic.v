@@ -69,4 +69,20 @@ Check ([x <- el 1%Z] ~_(0%R) [x <- el 1%Z] : (fun _ _ => True) ==> (fun _ _ => T
 Check ([x <- ev x :+ ev z]) ~_(0%R) [x <- ev z :+ ev x] : (fun _ _ => True) ==> (fun _ _ => True).
 End Test.
 
+Search (positive -> Z).
+
+Lemma aprhl_laplace :
+  forall {ts} (w : positive) (x1 x2 : var t_int ts) (e1 e2 : expr t_int ts) d,
+    [x1 <$- lap(w, e1)] ~_((IZR (Zpos w) * IZR d)%R) [x2 <$- lap(w, e2)] :
+      (fun m1 m2 => (sem_expr m1 e1 - sem_expr m2 e2 <= d)%Z)
+        ==> (fun m1 m2 => h_get m1 x1 = h_get m2 x2).
+Proof.
+  intros ts w x1 x2 e1 e2 d.
+  unfold triple.
+  intros m1 m2 m1' m2' H_eps.
+  intros P.
+  intros Hdeno1 Hdeno2.
+  unfold approximate_lifting.
+Admitted.
+
 End APRHL.
