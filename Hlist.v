@@ -9,6 +9,7 @@ Section Hlist.
 
 Variable A : Type.
 Variable f : A -> Type.
+Variable f_eqb : forall (x : A), f x -> f x -> bool.
 
 Inductive hlist : list A -> Type :=
 | h_nil : hlist nil
@@ -44,6 +45,18 @@ Program Fixpoint h_weak_update {ix : list A} (new_v : f elm) (ls : hlist ix) {st
                    | m_next _ _ mem' => h_cons _x _ix_tail old_v (@h_weak_update _ix_tail new_v tl mem')
                    end
       end.
+
+Program Fixpoint h_eqb {ix : list A} (ls : hlist ix) {struct ls}
+  : hlist ix -> bool :=
+  match ls with
+  | h_nil => fun _ => true
+  | h_cons _ _ v tl => fun ls2 =>
+                        match ls2 with
+                        | h_nil => _
+                        | h_cons _ _ v2 tl2 => andb (f_eqb _ v v2) (h_eqb tl tl2)
+                        end
+  end.
+
 End Hlist.
 
 Arguments h_nil   [_ _].
@@ -54,6 +67,7 @@ Arguments m_next  [_ _] _ [_] _.
 
 Arguments h_get [_ _ _ _] _ _.
 Arguments h_weak_update [_ _ _ _] _ _ _.
+Arguments h_eqb [_ _] _ [_] _ _.
 
 Definition f (_ : nat) := nat.
 Example hs : (hlist nat f nil) := h_nil.
