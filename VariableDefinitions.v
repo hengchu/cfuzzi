@@ -11,4 +11,10 @@ Definition tau_denote (t : tau) : Set :=
   | t_bool => bool
   end.
 
+Definition tau_eqb (t : tau) : tau_denote t -> tau_denote t -> bool :=
+  match t with
+  | t_int => Z.eqb
+  | t_bool => Bool.eqb
+  end.
+
 Definition var (t: tau) (ts: list tau) := @member tau t ts.
