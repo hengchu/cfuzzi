@@ -109,6 +109,50 @@ Arguments h_get [_ _ _ _] _ _.
 Arguments h_weak_update [_ _ _ _] _ _ _.
 Arguments h_eqb [_ _] _ [_] _ _.
 
+(* I don't think this is provable in Coq *)
+Axiom member_inj : forall {A : Type} (elm1 elm2 : A) ls,
+    member elm1 ls = member elm2 ls -> elm1 = elm2.
+
+Lemma m_next_congr : forall {A : Type} elm1 elm2 x ls
+                            (mem1 : @member A elm1 ls)
+                            (mem2 : @member A elm2 ls),
+    mem1 ~= mem2 -> m_next x mem1 ~= m_next x mem2.
+Proof.
+  intros A elm1 elm2 x ls mem1 mem2 Heq.
+  dependent destruction Heq.
+  assert (elm1 = elm2). {
+    eapply member_inj; eauto.
+  }
+  subst.
+  rewrite x.
+  reflexivity.
+Qed.
+
+Fixpoint
+  member_eq
+  {A : Type}
+  (teq : forall (t t': A), {t = t'} + {t <> t'})
+  {t t' : A}
+  {ts : list A}
+  (m : member t ts)
+  (m' : member t' ts)
+  : {m ~= m'} + {~(m ~= m')}.
+destruct (teq t t').
+- subst.
+  dependent destruction m;
+    dependent destruction m'.
+  + left. reflexivity.
+  + right. intros contra. dependent destruction contra.
+  + right. intros contra. dependent destruction contra.
+  + destruct (member_eq A teq t' t' ls m m').
+    * left. apply m_next_congr; auto.
+    * right. intros contra. dependent destruction contra; auto.
+- right. intros contra.
+  dependent destruction contra.
+  apply member_inj in x0.
+  contradiction.
+Defined.
+
 Definition f (_ : nat) := nat.
 Example hs : (hlist nat f nil) := h_nil.
 Example hs1 : (hlist nat f (cons 0 (cons 1 nil))) := h_cons 1 (h_cons 2 h_nil).
@@ -130,25 +174,6 @@ Proof.
   dependent destruction mem.
   - left; auto.
   - right. exists mem. reflexivity.
-Qed.
-
-(* I don't think this is provable in Coq *)
-Axiom member_inj : forall {A : Type} (elm1 elm2 : A) ls,
-    member elm1 ls = member elm2 ls -> elm1 = elm2.
-
-Lemma m_next_congr : forall {A : Type} elm1 elm2 x ls
-                            (mem1 : @member A elm1 ls)
-                            (mem2 : @member A elm2 ls),
-    mem1 ~= mem2 -> m_next x mem1 ~= m_next x mem2.
-Proof.
-  intros A elm1 elm2 x ls mem1 mem2 Heq.
-  dependent destruction Heq.
-  assert (elm1 = elm2). {
-    eapply member_inj; eauto.
-  }
-  subst.
-  rewrite x.
-  reflexivity.
 Qed.
 
 Lemma hlist_get_update_same : forall {A:Type} {f : A -> Type} {elm:A} {ix : list A} mem ls v,
