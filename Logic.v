@@ -85,4 +85,94 @@ Proof.
   unfold approximate_lifting.
 Admitted.
 
+Definition assign_sub_left
+           {t ts}
+           (P : memory_relation ts)
+           (x : var t ts)
+           (a : tau_denote t) : memory_relation ts :=
+  fun m1 =>
+    fun m2 =>
+      P (h_weak_update a m1 x) m2.
+
+Definition assign_sub_right
+           {t ts}
+           (P : memory_relation ts)
+           (x : var t ts)
+           (a : tau_denote t) : memory_relation ts :=
+  fun m1 =>
+    fun m2 =>
+      P m1 (h_weak_update a m2 x).
+
+Notation "P 'L([' x |-> a '])'" := (assign_sub_left P x a) (at level 10).
+Notation "P 'R([' x |-> a '])'" := (assign_sub_right P x a) (at level 10).
+
+Lemma aprhl_assign:
+  forall {t ts} (x1 x2 : var t ts) (e1 e2 : expr t ts) P,
+    [x1 <- e1] ~_(0%R) [x2 <- e2] :
+      (fun m1 m2 => P L([x1 |-> sem_expr m1 e1]) R([x2 |-> sem_expr m2 e2]) m1 m2)
+        ==> P.
+Proof.
+  intros t ts x1 x2 e1 e2 P.
+  unfold triple.
+  intros m1 m2 m1' m2' H_eps Hpre Hdeno1 Hdeno2.
+  unfold approximate_lifting.
+Admitted.
+
+Lemma aprhl_seq:
+  forall {ts} (c1 c1' c2 c2': cmd ts) (P Q S : memory_relation ts) (eps eps' : R),
+    c1 ~_(eps) c1' : P ==> Q ->
+    c2 ~_(eps') c2' : Q ==> S ->
+    (c1 ++ c2) ~_((eps + eps')%R) (c1' ++ c2') : P ==> S.
+Proof.
+Admitted.
+
+Lemma aprhl_cond:
+  forall {ts} (e1 e2 : expr t_bool ts) (ct1 ct2 cf1 cf2 : cmd ts) (P Q : memory_relation ts) (eps : R),
+    forall m1 m2, P m1 m2 -> (sem_expr m1 e1 = sem_expr m2 e2) ->
+    ct1 ~_(eps) ct2 : (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = true) ==> Q ->
+    cf1 ~_(eps) cf2 : (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = false) ==> Q ->
+    ([If e1 then ct1 else cf1 end]%list) ~_(eps) ([If e2 then ct2 else cf2 end]%list) : P ==> Q.
+Proof.
+Admitted.
+
+Lemma aprhl_while0:
+  forall {ts} (e1 e2 : expr t_bool ts) (c1 c2 : cmd ts) (Pinv : memory_relation ts),
+    forall m1 m2, Pinv m1 m2 -> (sem_expr m1 e1 = sem_expr m2 e2) ->
+    c1 ~_(0%R) c2 : (fun m1 m2 => Pinv m1 m2 /\ sem_expr m1 e1 = true) ==> Pinv ->
+    ([While e1 do c1 end]%list) ~_(0%R) ([While e2 do c2 end]%list)
+      : Pinv ==> (fun m1 m2 => Pinv m1 m2 /\ sem_expr m1 e1 = false).
+Proof.
+Admitted.
+
+Lemma aprhl_while:
+  forall {ts}
+         (e1 e2 : expr t_bool ts)
+         (ev : expr t_int ts)
+         (c1 c2 : cmd ts)
+         (P : memory_relation ts)
+         (eps : R)
+         (N : nat),
+  forall m1 m2, (P m1 m2 /\ (sem_expr m1 ev <= 0)%Z -> sem_expr m1 e1 = false) ->
+  forall m1 m2, (P m1 m2 -> sem_expr m1 e1 = sem_expr m2 e2) ->
+  forall (k : nat),
+    c1 ~_(eps) c2
+    : (fun m1 m2 =>
+         P m1 m2
+         /\ sem_expr m1 e1 = true
+         /\ sem_expr m1 ev = Z.of_nat k)
+        ==> (fun m1 m2 =>
+               P m1 m2
+               /\ (sem_expr m1 ev < Z.of_nat k)%Z) ->
+
+      ([While e1 do c1 end]%list) ~_(((INR N) * eps)%R) ([While e2 do c2 end]%list) :
+
+      (fun m1 m2 =>
+         P m1 m2
+         /\ (sem_expr m1 ev <= Z.of_nat N)%Z)
+        ==> (fun m1 m2 =>
+               P m1 m2
+               /\ sem_expr m1 e1 = false).
+Proof.
+Admitted.
+
 End APRHL.
