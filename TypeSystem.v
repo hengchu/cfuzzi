@@ -67,13 +67,20 @@ Eval simpl in (denote_env env2).
 Eval compute in (env_update env1 x 10).
 End Test.
 
-Definition typing_rule {ts} := @env ts -> cmd ts -> (R * @env ts)%type.
+Definition typechecker {ts} := @env ts -> cmd ts -> (R * @env ts)%type.
 
 (* The theorem we need to prove to establish the validity of a typing rule in apRHL *)
-Definition typing_rule_valid {ts} (r : @typing_rule ts) :=
+Definition typechecker_valid {ts} (r : @typechecker ts) :=
   forall e_pre c,
     let eps := fst (r e_pre c) in
     let e_post := snd (r e_pre c) in
     c ~_(eps) c : denote_env e_pre ==> denote_env e_post.
+
+Definition typesystem {ts} := @env ts -> cmd ts -> R -> @env ts -> Prop.
+
+(* The theorem we need to prove to show a typesystem is sound *)
+Definition typesystem_valid {ts} (T : @typesystem ts) :=
+  forall pre post c eps,
+    T pre c eps post -> c ~_(eps) c : denote_env pre ==> denote_env post.
 
 End TypeSystem.
