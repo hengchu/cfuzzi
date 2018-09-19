@@ -1,6 +1,7 @@
 Require Export VariableDefinitions.
 Require Export Hlist.
 Require Export Logic.
+Require Export SyntaxExtension.
 
 Module TypeSystem(E : Embedding).
 Module APRHL := APRHL(E).
@@ -67,20 +68,34 @@ Eval simpl in (denote_env env2).
 Eval compute in (env_update env1 x 10).
 End Test.
 
+(* A typechecker for the base language *)
 Definition typechecker {ts} := @env ts -> cmd ts -> (R * @env ts)%type.
-
 (* The theorem we need to prove to establish the validity of a typing rule in apRHL *)
-Definition typechecker_valid {ts} (r : @typechecker ts) :=
+Definition typechecker_valid {ts} (tc : @typechecker ts) :=
   forall e_pre c,
-    let eps := fst (r e_pre c) in
-    let e_post := snd (r e_pre c) in
+    let eps := fst (tc e_pre c) in
+    let e_post := snd (tc e_pre c) in
     c ~_(eps) c : denote_env e_pre ==> denote_env e_post.
 
+(* A type system for the base language *)
 Definition typesystem {ts} := @env ts -> cmd ts -> R -> @env ts -> Prop.
-
 (* The theorem we need to prove to show a typesystem is sound *)
 Definition typesystem_valid {ts} (T : @typesystem ts) :=
   forall pre post c eps,
     T pre c eps post -> c ~_(eps) c : denote_env pre ==> denote_env post.
+
+Definition typechecker_ext {ts} := @env ts -> cmd_ext ts -> (R * @env ts)%type.
+Definition typechecker_ext_valid {ts} (tc : @typechecker_ext ts) :=
+  forall e_pre c,
+    let eps := fst (tc e_pre c) in
+    let e_post := snd (tc e_pre c) in
+    let c' := desugar_cmd_ext c in
+    c' ~_(eps) c' : denote_env e_pre ==> denote_env e_post.
+
+Definition typesystem_ext {ts} := @env ts -> cmd_ext ts -> R -> @env ts -> Prop.
+Definition typesystem_ext_valid {ts} (T : @typesystem_ext ts) :=
+  forall pre post c eps,
+    let c' := desugar_cmd_ext c in
+    T pre c eps post -> c' ~_(eps) c' : denote_env pre ==> denote_env post.
 
 End TypeSystem.
