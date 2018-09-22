@@ -196,7 +196,7 @@ Fixpoint step_trans {ts} (c: cmd ts) (m: memory ts) (n : nat)
   : distr ((cmd ts) * (memory ts)) :=
   match n with
   | O => Munit (c, m)
-  | S n' => Mlet (step_cmd c m) (fun cm => match cm with (c, m) => step_trans c m n' end)
+  | S n' => Mlet (step_trans c m n') (fun cm => step_cmd (fst cm) (snd cm))
   end.
 
 Definition final {ts} (c : cmd ts) : bool :=
@@ -205,17 +205,32 @@ Definition final {ts} (c : cmd ts) : bool :=
   | _ => false
   end.
 
+Definition Mdistr0 {A : Type} : M A := fun _ => 0.
+Hint Unfold Mdistr0.
+
+Definition distr0 {A : Type} : distr A.
+  apply Build_distr with (mu := Mdistr0).
+  - unfold stable_inv.
+    intros f; unfold Mdistr0; simpl; auto.
+  - unfold stable_plus.
+    intros f g Hfg; unfold Mdistr0; simpl; auto.
+  - unfold stable_mult.
+    intros k f; unfold Mdistr0; simpl; auto.
+  - unfold monotonic.
+    intros f g Hfg; unfold Mdistr0; simpl; auto.
+Defined.
+
 Definition step_star {ts} (c: cmd ts) (m: memory ts) (n : nat)
-  : distr ((cmd ts) * (memory ts))%type :=
-  match final c with
-  | true => Munit (c, m)
-  | false => step_trans c m n
-  end.
+  : distr (memory ts)%type :=
+  Mlet (step_trans c m n)
+       (fun cm =>
+          match cm with
+          | (c, m) => if final c then Munit m else distr0
+          end).
 
 Hint Unfold step_cmd.
 Hint Unfold step_trans.
 Hint Unfold step_star.
-
 
 Lemma step_final : forall {ts} (c : cmd ts) m,
     final c = true -> step_cmd c m = Munit (List.nil, m).
@@ -230,10 +245,17 @@ Lemma step_trans_final : forall {ts} (c : cmd ts) m n,
     final c = true -> eq_distr (step_trans c m n) (Munit (List.nil, m)).
 Proof.
   intros ts c m n.
+  generalize dependent ts.
   induction n.
-  - intros Hfinal; simpl; destruct c; [reflexivity | inversion Hfinal].
-  - intros Hfinal.
-    destruct c; [ simpl; rewrite Mlet_unit; apply IHn; auto | inversion Hfinal ].
+  - intros ts c m Hfinal. simpl.
+    destruct c; [auto | inversion Hfinal].
+  - intros ts c m Hfinal. simpl.
+    apply eq_distr_trans
+      with (m2 := (Mlet (Munit (@List.nil (@instr ts), m)) (fun cm : (cmd ts) * memory ts => step_cmd (fst cm) (snd cm)))); auto.
+    apply Mlet_compat; auto.
+    rewrite Mlet_unit.
+    simpl.
+    reflexivity.
 Qed.
 
 Module Test.
@@ -258,20 +280,19 @@ Proof.
   induction Hjk as [|k Hle IH]; auto.
   - intros ts c m.
     apply le_distr_trans with (m2 := step_star c m k); auto.
-    unfold step_star at 2.
-    destruct c.
-    + unfold step_star at 1.
-      auto.
-    + simpl (final (_ :: _)).
-Admitted.
+    intros f.
+    simpl.
+    rewrite law3.
+    apply mu_monotonic.
+    unfold fle.
+    intros [[|i1 c1] m1].
+    + simpl. rewrite law1. simpl. auto.
+    + replace (fst ((i1 :: c1)%list, m1)) with ((i1 :: c1)%list); auto.
+Qed.
 
-
-Definition cdeno {ts} (c : cmd ts) (m : memory ts) :=
-  mu_lub (step_star c m) (step_star_monotonic c m).
 Definition deno {ts} (c : cmd ts) (m : memory ts) :=
-  Mlet (cdeno c m) (fun cm => Munit (snd cm)).
+  mu_lub (step_star c m) (step_star_monotonic c m).
 
-Notation "'[[[' c ']]]'" := (cdeno c) (at level 65).
 Notation "'[[' c ']]'" := (deno c) (at level 65).
 
 Module Test2.

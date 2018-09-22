@@ -1,7 +1,9 @@
 Require Export Semantics.
+Require Export Carac.
 
 Module APRHL(E : Embedding).
 Module SEM := Semantics.Semantics(E).
+Module CAR := CaracFun(E).
 
 Import E.
 Import SEM.
@@ -10,6 +12,7 @@ Import SEM.LAP.RP.
 Import SEM.LAP.RP.PP.
 Import SEM.LAP.RP.PP.MP.
 Import SEM.LAP.RP.PP.MP.UP.
+Import CAR.
 
 Definition proj_left {ts} (d : distr (memory ts * memory ts)) := Mlet d (fun pm => Munit (fst pm)).
 Definition proj_right {ts} (d : distr (memory ts * memory ts)) := Mlet d (fun pm => Munit (snd pm)).
@@ -28,6 +31,7 @@ Definition support_cond {ts} (m : distr ((memory ts) * (memory ts))) (R : memory
     (0 < (mu m (fun pm' => if memory_eqb2 pm' pm then 1%U else 0%U)))%U
     -> R (fst pm) (snd pm).
 
+(* https://justinh.su/files/slides/approx-couplings.pdf, page 23 *)
 Definition approximate_lifting
            {ts}
            {eps : R}

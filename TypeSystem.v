@@ -98,4 +98,16 @@ Definition typesystem_ext_valid {ts} (T : @typesystem_ext ts) :=
     let c' := desugar_cmd_ext c in
     T pre c eps post -> c' ~_(eps) c' : denote_env pre ==> denote_env post.
 
+Print Assumptions typesystem_ext_valid.
+
+Fixpoint sens_expr {t ts} (ctx : @env ts) (e : expr t ts) : Z.
+Admitted.
+
+Lemma assign_sound :
+  forall {t ts} (ctx : @env ts) (x : var t ts) (e : expr t ts) d,
+    sens_expr ctx e = d ->
+    [x <- e] ~_(0%R) [x <- e] : denote_env ctx ==> denote_env (env_update ctx x d).
+(* Use aprhl_assign *)
+Admitted.
+
 End TypeSystem.
