@@ -1,7 +1,6 @@
 Require Export VariableDefinitions.
 Require Export Hlist.
 Require Export Logic.
-Require Export SyntaxExtension.
 
 Module TypeSystem(E : Embedding).
 Module APRHL := APRHL(E).
@@ -75,30 +74,14 @@ Definition typechecker_valid {ts} (tc : @typechecker ts) :=
   forall e_pre c,
     let eps := fst (tc e_pre c) in
     let e_post := snd (tc e_pre c) in
-    c ~_(eps) c : denote_env e_pre ==> denote_env e_post.
+    (c ~_(eps) c : denote_env e_pre ==> denote_env e_post)%triple.
 
 (* A type system for the base language *)
 Definition typesystem {ts} := @env ts -> cmd ts -> R -> @env ts -> Prop.
 (* The theorem we need to prove to show a typesystem is sound *)
 Definition typesystem_valid {ts} (T : @typesystem ts) :=
   forall pre post c eps,
-    T pre c eps post -> c ~_(eps) c : denote_env pre ==> denote_env post.
-
-Definition typechecker_ext {ts} := @env ts -> cmd_ext ts -> (R * @env ts)%type.
-Definition typechecker_ext_valid {ts} (tc : @typechecker_ext ts) :=
-  forall e_pre c,
-    let eps := fst (tc e_pre c) in
-    let e_post := snd (tc e_pre c) in
-    let c' := desugar_cmd_ext c in
-    c' ~_(eps) c' : denote_env e_pre ==> denote_env e_post.
-
-Definition typesystem_ext {ts} := @env ts -> cmd_ext ts -> R -> @env ts -> Prop.
-Definition typesystem_ext_valid {ts} (T : @typesystem_ext ts) :=
-  forall pre post c eps,
-    let c' := desugar_cmd_ext c in
-    T pre c eps post -> c' ~_(eps) c' : denote_env pre ==> denote_env post.
-
-Print Assumptions typesystem_ext_valid.
+    (T pre c eps post -> c ~_(eps) c : denote_env pre ==> denote_env post)%triple.
 
 Fixpoint sens_expr {t ts} (ctx : @env ts) (e : expr t ts) : Z.
 Admitted.
@@ -106,7 +89,7 @@ Admitted.
 Lemma assign_sound :
   forall {t ts} (ctx : @env ts) (x : var t ts) (e : expr t ts) d,
     sens_expr ctx e = d ->
-    [x <- e] ~_(0%R) [x <- e] : denote_env ctx ==> denote_env (env_update ctx x d).
+    ([x <- e] ~_(0%R) [x <- e] : denote_env ctx ==> denote_env (env_update ctx x d))%triple.
 (* Use aprhl_assign *)
 Admitted.
 

@@ -61,19 +61,23 @@ Definition triple
     -> approximate_lifting eps_gt_0 Q m1' m2'.
 
 Notation "c1 '~_(' eps ')' c2 ':' P '==>' Q" :=
-  (triple eps P c1 c2 Q) (at level 65, c2 at level 64, P at level 50).
+  (triple eps P c1 c2 Q) (at level 65, c2 at level 64, P at level 50) : triple_scope.
+
+Bind Scope triple_scope with triple.
+Delimit Scope triple_scope with triple.
 
 Module Test.
-  Local Open Scope expr_scope.
 Definition env := [t_int; t_bool; t_int]%list.
 Parameter x : var t_int env.
 Parameter y : var t_bool env.
 Parameter z : var t_int env.
-Check ([x <- el 1%Z] ~_(0%R) [x <- el 1%Z] : (fun _ _ => True) ==> (fun _ _ => True)).
-Check ([x <- ev x :+ ev z]) ~_(0%R) [x <- ev z :+ ev x] : (fun _ _ => True) ==> (fun _ _ => True).
+Check ([x <- el 1%Z] ~_(0%R) [x <- el 1%Z] : (fun _ _ => True) ==> (fun _ _ => True))%triple.
+Check (([x <- ev x :+ ev z]) ~_(0%R) [x <- ev z :+ ev x] : (fun _ _ => True) ==> (fun _ _ => True))%triple.
 End Test.
 
 Search (positive -> Z).
+
+Local Open Scope triple_scope.
 
 Lemma aprhl_laplace :
   forall {ts} (w : positive) (x1 x2 : var t_int ts) (e1 e2 : expr t_int ts) d,

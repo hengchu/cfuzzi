@@ -28,17 +28,19 @@ Notation "e1 ':==' e2" := (e_eq e1 e2) (at level 69, no associativity) : expr_sc
 Notation "e1 ':&&' e2" := (e_and e1 e2) (at level 66, left associativity) : expr_scope.
 Notation "e1 ':||' e2" := (e_or e1 e2) (at level 67, left associativity) : expr_scope.
 
+Bind Scope expr_scope with expr.
+Delimit Scope expr_scope with expr.
+
 Module TestNotations.
-Local Open Scope expr_scope.
 Parameter x : var t_int (cons t_int (cons t_int (cons t_bool nil))).
 Parameter y : var t_int (cons t_int (cons t_int (cons t_bool nil))).
 Parameter z : var t_bool (cons t_int (cons t_int (cons t_bool nil))).
 
-Check (ev x :+ ev y :- ev x :* ev x).
-Check (ev x :< ev y).
-Check (ev z :&& ev z).
-Check (ev x :+ ev y :< ev y :* ev y).
-Check (el 1%Z :< ev x :+ ev y).
+Check (ev x :+ ev y :- ev x :* ev x)%expr.
+Check (ev x :< ev y)%expr.
+Check (ev z :&& ev z)%expr.
+Check (ev x :+ ev y :< ev y :* ev y)%expr.
+Check (el 1%Z :< ev x :+ ev y)%expr.
 End TestNotations.
 
 Inductive base_instr : list tau -> Type :=

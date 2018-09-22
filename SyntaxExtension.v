@@ -1,26 +1,38 @@
-Require Export Syntax.
+Require Export TypeSystem.
 
-Reserved Notation "'cmd_ext' ts" (at level 65, no associativity).
-Inductive instr_ext : list tau -> Type :=
-| i_bagmap : forall {ts}, (* TODO: make this a proper bag map *)
-    instr ts -> instr_ext ts
-| i_plain : forall {ts},
-    instr ts -> instr_ext ts
-where "'cmd_ext' ts" := (list (instr_ext ts)).
-
-Coercion i_plain : instr >-> instr_ext.
-
-Module Test.
-  Definition ts := cons t_int (cons t_bool nil).
-  Parameter x : var t_int ts.
-  Check (x <- (e_lit 1%Z) : instr_ext ts).
-End Test.
-
-Fixpoint desugar_instr_ext {ts} (i : instr_ext ts) : instr ts :=
-  match i with
-  | i_bagmap i' => i'
-  | i_plain i' => i'
+Fixpoint uncurry_P (premises : list Prop) (conclusion : Prop) :=
+  match premises with
+  | []%list => conclusion
+  | (p :: ps)%list => p -> (uncurry_P ps conclusion)
   end.
 
-Definition desugar_cmd_ext {ts} (c : cmd_ext ts) : cmd ts :=
-  List.map desugar_instr_ext c.
+Module Type Extension (E: Embedding).
+
+Module APRHL := APRHL(E).
+Module TS := TypeSystem.TypeSystem(E).
+
+Import APRHL.
+Import TS.
+
+(* The extra syntax we are adding *)
+Parameter syntax : list tau -> Type.
+
+(* How to compile the new syntax into orignal language *)
+Parameter compile : forall {ts}, syntax ts -> cmd ts.
+
+(* Coercion into lists of instructions so we can mix syntax freely *)
+Coercion compile : syntax >-> list.
+
+(* The premises of the typing rule can range over pre-condition, syntax, post
+   condition and epsilon *)
+Parameter premises : forall ts (pre : @env ts) (c : syntax ts) (post : @env ts) (eps : R), list Prop.
+
+(* The proof of the typing rule for this extension *)
+Parameter typing_rule:
+  forall ts (pre : @env ts) (c : syntax ts) (post : @env ts) (eps : R),
+      let c' := compile c in
+      uncurry_P
+        (premises ts pre c post eps)
+        (c' ~_(eps) c' : denote_env pre ==> denote_env post)%triple.
+
+End Extension.
