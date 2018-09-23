@@ -14,6 +14,9 @@ Variable f_eqb : forall (x : A), f x -> f x -> bool.
 Variable f_eqb_iff_eq : forall {x: A} (v1 v2 : f x),
     f_eqb x v1 v2 = true <-> v1 = v2.
 
+Variable f_eqdec : forall (x : A) (v1 v2 : f x),
+    {v1 = v2} + {v1 <> v2}.
+
 Inductive hlist : list A -> Type :=
 | h_nil : hlist nil
 | h_cons : forall (x : A) (ls : list A), f x -> hlist ls -> hlist (x :: ls).
@@ -97,6 +100,26 @@ Proof.
       * apply IHix; auto.
 Qed.
 
+Lemma h_eqdec : forall {ix} (ls1 ls2 : hlist ix),
+    {ls1 = ls2} + {ls1 <> ls2}.
+Proof.
+  intros ix.
+  induction ix.
+  - intros ls1 ls2.
+    left.
+    dependent destruction ls1.
+    dependent destruction ls2.
+    auto.
+  - intros ls1 ls2.
+    dependent destruction ls1.
+    dependent destruction ls2.
+    destruct (f_eqdec a f0 f1); destruct (IHix ls1 ls2).
+    + left; f_equal; auto.
+    + right; intros contra; dependent destruction contra; apply n; auto.
+    + right; intros contra; dependent destruction contra; apply n; auto.
+    + right; intros contra. dependent destruction contra; apply n; auto.
+Defined.
+
 End Hlist.
 
 Arguments h_nil   [_ _].
@@ -108,6 +131,7 @@ Arguments m_next  [_ _] _ [_] _.
 Arguments h_get [_ _ _ _] _ _.
 Arguments h_weak_update [_ _ _ _] _ _ _.
 Arguments h_eqb [_ _] _ [_] _ _.
+Arguments h_eqdec [_ _] _ [_] _ _.
 
 (* I don't think this is provable in Coq *)
 Axiom member_inj : forall {A : Type} (elm1 elm2 : A) ls,

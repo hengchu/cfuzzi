@@ -20,7 +20,7 @@ Definition proj_right {ts} (d : distr (memory ts * memory ts)) := Mlet d (fun pm
 Definition memory_relation ts := memory ts -> memory ts -> Prop.
 
 Definition memory_eqb {ts} (m1 m2 : memory ts) :=
-  h_eqb tau_eqb m1 m2.
+  h_eqb (@tau_denote_eqb) m1 m2.
 
 Definition memory_eqb2 {ts} (pm1 pm2 : ((memory ts) * (memory ts))) :=
   andb (memory_eqb (fst pm1) (fst pm2))

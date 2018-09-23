@@ -1,2 +1,10 @@
 -Q . ""
--R /Users/hengchu/.opam/4.05.0/lib/coq/user-contrib/Random Random
+-R ../random Random
+
+Hlist.v
+Logic.v
+Semantics.v
+Syntax.v
+SyntaxExtension.v
+TypeSystem.v
+VariableDefinitions.v
