@@ -84,7 +84,7 @@ Section Metrics.
     | _, _ => None
     end.
 
-  Definition L1_metric : forall A, Metric A -> Metric (list A).
+  Definition L1_metric : forall {A}, Metric A -> Metric (list A).
     intros A Metric_A.
     refine (Build_metric
               (L1_metric_f Metric_A) _ _ _).
@@ -177,8 +177,7 @@ Section Metrics.
     reflexivity.
   Qed.
 
-  Definition bag_metric : forall A, (forall (x y: A), {x = y} + {x <> y}) -> Metric (list A).
-  Proof.
+  Definition bag_metric : forall {A}, (forall (x y: A), {x = y} + {x <> y}) -> Metric (list A).
     intros A A_eqdec.
     refine (Build_metric (bag_metric_f A_eqdec) _ _ _).
     - intros x y d.
@@ -193,23 +192,20 @@ Section Metrics.
     - induction x.
       + reflexivity.
       + rewrite bag_metric_hd; auto.
-  Qed.
+  Defined.
 
 End Metrics.
 
-Fixpoint L1_relation (t : tau) (v1 v2 : list (tau_denote t)) (z : Z) : Prop :=
-  match v1, v2 with
-  | List.nil, List.nil => (z >= 0)%Z
-  | v1 :: vs1, v2 :: vs2 =>
-    L1_relation t vs1 vs2 (z - Zabs (v1 - v2)%Z)
-  | _, _ => False
+Fixpoint tau_denote_metric (t : tau) : Metric (tau_denote t) :=
+  match t with
+  | t_int => Z_metric
+  | t_bool => bool_metric
+  | t_arr t => L1_metric (tau_denote_metric t)
+  | t_bag t => bag_metric (tau_denote_eqdec t)
   end.
 
 Definition dist_relation (t : tau) (v1 v2 : tau_denote t) (z : Z) : Prop :=
-  match t as t' return (tau_denote t' -> tau_denote t'-> Prop) with
-  | t_int => fun v1 v2 => (Zabs (v1 - v2)%Z <= z)%Z
-  | t_bool => fun v1 v2 => if (z =? 0)%Z then (v1 = v2) else True
-  end v1 v2.
+  exists d, tau_denote_metric t v1 v2 = Some d /\ (d <= z)%Z.
 
 Inductive env {ts : list tau} : Type :=
 | env_nil : env
@@ -239,7 +235,7 @@ Program Fixpoint denote_env {ts} (e : env) : memory_relation ts :=
     fun m1 m2 => True
   | env_cons _t x d tl =>
     fun m1 m2 => (dist_relation _t (h_get m1 x) (h_get m2 x) d)
-                 /\ (denote_env _ m1 m2)
+              /\ (denote_env _ m1 m2)
   end.
 
 Module Test.
