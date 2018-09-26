@@ -2,6 +2,8 @@ Require Export ZArith.
 Require Export Hlist.
 Require Export Coq.Lists.List.
 
+Require Export Program.
+
 Inductive tau :=
 | t_int
 | t_bool

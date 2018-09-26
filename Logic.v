@@ -19,17 +19,29 @@ Definition proj_right {ts} (d : distr (memory ts * memory ts)) := Mlet d (fun pm
 
 Definition memory_relation ts := memory ts -> memory ts -> Prop.
 
-Definition memory_eqb {ts} (m1 m2 : memory ts) :=
-  h_eqb (@tau_denote_eqb) m1 m2.
+Definition support_cond
+           {ts}
+           (m : distr ((memory ts) * (memory ts)))
+           (R : memory_relation ts) :=
+  range (fun pm => R (fst pm) (snd pm)) m.
 
-Definition memory_eqb2 {ts} (pm1 pm2 : ((memory ts) * (memory ts))) :=
-  andb (memory_eqb (fst pm1) (fst pm2))
-       (memory_eqb (snd pm1) (snd pm2)).
+Definition mem_eqdec {ts} : forall (m1 m2 : memory ts), {m1 = m2} + {m1 <> m2} :=
+  @h_eqdec _ _ tau_denote_eqdec ts.
 
-Definition support_cond {ts} (m : distr ((memory ts) * (memory ts))) (R : memory_relation ts) :=
-  forall pm,
-    (0 < (mu m (fun pm' => if memory_eqb2 pm' pm then 1%U else 0%U)))%U
-    -> R (fst pm) (snd pm).
+Definition mem_pair_eqdec {ts} : forall (pm1 pm2 : (memory ts) * (memory ts)),
+    {pm1 = pm2} + {pm1 <> pm2}.
+  refine (fun pm1 pm2 =>
+            match pm1, pm2 with
+            | (m1, m2), (m3, m4)
+              => match (mem_eqdec m1 m3), (mem_eqdec m2 m4) with
+                | left pf1, left pf2 => left _
+                | _, _ => right _
+                end
+            end).
+  - subst; auto.
+  - intros contra. inversion contra; subst. apply n; auto.
+  - intros contra. inversion contra; subst. apply n; auto.
+Defined.
 
 (* https://justinh.su/files/slides/approx-couplings.pdf, page 23 *)
 Definition approximate_lifting
@@ -43,9 +55,9 @@ Definition approximate_lifting
     /\ eq_distr (proj_right u_r) m2
     /\ support_cond u_l Q
     /\ support_cond u_r Q
-    /\ forall (pm : (memory ts) * (memory ts)),
-        (iR (mu u_l (fun pm' => if memory_eqb2 pm pm' then 1%U else 0%U))
-        <= (exp eps) * iR (mu u_r (fun pm' => if memory_eqb2 pm pm' then 1%U else 0%U)))%R.
+    /\ forall pm,
+        ((iR (mu u_l (carac (mem_pair_eqdec pm))))
+         <= (exp eps) * iR (mu u_r (carac (mem_pair_eqdec pm))))%R.
 
 Definition triple
            {ts}
