@@ -1,7 +1,8 @@
 Require Export ZArith.
 Require Export Hlist.
 Require Export Coq.Lists.List.
-
+Require Export Coq.Strings.String.
+Require Export Coq.Structures.DecidableType.
 Require Export Program.
 
 Inductive tau :=
@@ -50,4 +51,27 @@ Fixpoint tau_denote_eqdec (t : tau) : forall (x y : tau_denote t), {x = y} + {x 
 Definition tau_denote_eqb {t : tau} : tau_denote t -> tau_denote t -> bool :=
   fun x y => if tau_denote_eqdec t x y then true else false.
 
-Definition var (t: tau) (ts: list tau) := @member tau t ts.
+Inductive val :=
+| v_int : Z -> val
+| v_bool : bool -> val
+| v_arr : list val -> val
+| v_bag : list val -> val.
+
+Lemma val_eqdec : forall v v' : val, {v = v'} + {v <> v'}.
+Proof.
+  (* Easy *)
+Admitted.
+
+Definition var := string.
+
+Module StringDec <: DecidableType.
+  Definition t := string.
+  Definition eq : t -> t -> Prop := fun x y => x = y.
+  Lemma eq_refl : forall x : t, x = x.
+  Proof. auto. Qed.
+  Lemma eq_sym : forall x y : t, x = y -> y = x.
+  Proof. auto. Qed.
+  Lemma eq_trans : forall x y z : t, x = y -> y = z -> x = z.
+  Proof. intros x y z H; rewrite H; auto. Qed.
+  Definition eq_dec := string_dec.
+End StringDec.

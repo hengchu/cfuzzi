@@ -192,4 +192,7 @@ Module Test2.
   Check ([[ prog1 ]]).
 End Test2.
 
+Definition lossless {ts : list tau} (c : cmd ts) :=
+  forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.
+
 End Semantics.

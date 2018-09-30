@@ -195,4 +195,57 @@ Lemma aprhl_while:
 Proof.
 Admitted.
 
+Lemma aprhl_conseq:
+  forall {ts}
+    c1 c2 (P P' Q' Q : memory_relation ts) eps' eps,
+  c1 ~_(eps') c2 : P' ==> Q' ->
+  (forall m1 m2, P m1 m2 -> P' m1 m2) ->
+  (forall m1 m2, Q' m1 m2 -> Q m1 m2) ->
+  (eps' <= eps)%R ->
+  c1 ~_(eps) c2 : P ==> Q.
+Proof.
+Admitted.
+
+Lemma aprhl_case:
+  forall {ts}
+    c1 c2 (P Q R : memory_relation ts) eps,
+    (c1 ~_(eps) c2 : (fun m1 m2 => P m1 m2 /\ Q m1 m2) ==> R) ->
+    (c1 ~_(eps) c2 : (fun m1 m2 => P m1 m2 /\ ~(Q m1 m2)) ==> R) ->
+    c1 ~_(eps) c2 : P ==> R.
+Proof.
+Admitted.
+
+Definition losslessP {ts} (P : memory ts -> Prop) (c : cmd ts) :=
+  forall m, P m -> lossless c.
+
+Lemma aprhl_while_L:
+  forall {ts}
+    e1 c1 (P : memory_relation ts) (P1 : memory ts -> Prop),
+    (forall m1 m2, P m1 m2 -> P1 m1) ->
+    losslessP P1 ([While e1 do c1 end]%list) ->
+    (c1 ~_(0) [] : (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = true) ==> P) ->
+    [While e1 do c1 end] ~_(0) [] : P ==> (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = false).
+Proof.
+  Admitted.
+
+Lemma aprhl_while_R:
+  forall {ts}
+    e2 c2 (P : memory_relation ts) (P2 : memory ts -> Prop),
+    (forall m1 m2, P m1 m2 -> P2 m2) ->
+    losslessP P2 ([While e2 do c2 end]%list) ->
+    ([] ~_(0) c2 : (fun m1 m2 => P m1 m2 /\ sem_expr m2 e2 = true) ==> P) ->
+    [] ~_(0) [While e2 do c2 end] : P ==> (fun m1 m2 => P m1 m2 /\ sem_expr m2 e2 = false).
+Proof.
+Admitted.
+
+Lemma aprhl_equiv:
+  forall {ts}
+    c1 c1' c2 c2' eps (P Q : memory_relation ts),
+  (c1' ~_(eps) c2' : P ==> Q) ->
+  (forall m, eq_distr ([[c1]] m) ([[c1']] m)) ->
+  (forall m, eq_distr ([[c2]] m) ([[c2']] m)) ->
+  c1 ~_(eps) c2 : P ==> Q.
+Proof.
+Admitted.
+
 End APRHL.

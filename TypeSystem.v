@@ -207,36 +207,23 @@ Fixpoint tau_denote_metric (t : tau) : Metric (tau_denote t) :=
 Definition dist_relation (t : tau) (v1 v2 : tau_denote t) (z : Z) : Prop :=
   exists d, tau_denote_metric t v1 v2 = Some d /\ (d <= z)%Z.
 
-Inductive env {ts : list tau} : Type :=
-| env_nil : env
-| env_cons : forall {t}, var t ts -> Z -> env -> env.
+Definition tau_denote_dist (t : tau) := option Z.
+Definition env := hlist tau tau_denote_dist.
+Definition env_get {t ts} (x : var t ts) (e : env ts) := h_get e x.
+Definition env_set {t ts} (x : var t ts) (e : env ts) (d : Z) := h_weak_update (Some d) e x.
+Definition env_del {t ts} (x : var t ts) (e : env ts) := h_weak_update None e x.
 
-Program Fixpoint env_update {t ts} (e : env) (x : var t ts) (d : Z) : env :=
+Program Fixpoint denote_env {ts} (e : env ts) : memory_relation ts :=
   match e with
-  | env_nil => env_cons x d env_nil
-  | env_cons _ x' d' e' =>
-    if member_eq tau_eqdec x' x
-    then env_cons x d e'
-    else env_cons x' d' (env_update e' x d)
+  | h_nil => fun _ _ => True
+  | h_cons _ _ sd tl =>
+    match sd with
+    | None => denote_env tl
+    | Some d => fun m1 m2 => denote_env tl m1 m2
+    end
   end.
 
-Program Fixpoint env_remove {t ts} (e : env) (x : var t ts) : env :=
-  match e with
-  | env_nil => env_nil
-  | env_cons _ x' d' e' =>
-    if member_eq tau_eqdec x' x
-    then env_remove e' x
-    else env_cons x' d' (env_remove e' x)
-  end.
-
-Program Fixpoint denote_env {ts} (e : env) : memory_relation ts :=
-  match e with
-  | env_nil =>
-    fun m1 m2 => True
-  | env_cons _t x d tl =>
-    fun m1 m2 => (dist_relation _t (h_get m1 x) (h_get m2 x) d)
-              /\ (denote_env _ m1 m2)
-  end.
+Next Obligation.
 
 Module Test.
 Example ts := [t_int; t_int; t_bool]%list.
@@ -254,24 +241,99 @@ Eval simpl in (denote_env env2).
 Eval compute in (env_update env1 x 10).
 End Test.
 
-(* A typechecker for the base language *)
-Definition typechecker {ts} := @env ts -> cmd ts -> (R * @env ts)%type.
-(* The theorem we need to prove to establish the validity of a typing rule in apRHL *)
-Definition typechecker_valid {ts} (tc : @typechecker ts) :=
-  forall e_pre c,
-    let eps := fst (tc e_pre c) in
-    let e_post := snd (tc e_pre c) in
-    (c ~_(eps) c : denote_env e_pre ==> denote_env e_post)%triple.
+Definition liftM2_option {a b c} : (a -> b -> c) -> (option a -> option b -> option c) :=
+  fun f o1 o2 => match o1, o2 with
+              | Some o1, Some o2 => Some (f o1 o2)
+              | _, _ => None
+              end.
 
-(* A type system for the base language *)
-Definition typesystem {ts} := @env ts -> cmd ts -> R -> @env ts -> Prop.
-(* The theorem we need to prove to show a typesystem is sound *)
-Definition typesystem_valid {ts} (T : @typesystem ts) :=
-  forall pre post c eps,
-    (T pre c eps post -> c ~_(eps) c : denote_env pre ==> denote_env post)%triple.
+Definition liftM {a b} : (a -> b) -> (option a -> option b) :=
+  fun f o => match o with
+          | Some o => Some (f o)
+          | _ => None
+          end.
 
-Fixpoint sens_expr {t ts} (ctx : @env ts) (e : expr t ts) : Z.
-Admitted.
+Definition comb_sens (s1 s2 : option Z) :=
+  match s1, s2 with
+  | Some s1, Some s2 =>
+    if orb (s1 >? 0)%Z (s2 >? 0)%Z
+    then None
+    else Some 0%Z
+  | _, _ => None
+  end.
+
+Fixpoint sens_expr {t : tau} {ts : list tau} (e : expr t ts) (ctx : @env ts) : option Z.
+  destruct e eqn:He.
+  - apply (Some 0%Z).
+  - apply (env_get ctx v).
+  - apply (liftM2_option Z.add (sens_expr _ _ e0_1 ctx) (sens_expr _ _ e0_2 ctx)).
+  - apply (liftM2_option Z.add (sens_expr _ _ e0_1 ctx) (sens_expr _ _ e0_2 ctx)).
+  - refine (match e0_1, e0_2 with
+            | e_lit _ k, e2 => liftM (Z.mul k) (sens_expr _ _ e2 ctx)
+            | e1, e_lit _ k => liftM (Z.mul k) (sens_expr _ _ e1 ctx)
+            | e1, e2 => comb_sens (sens_expr _ _ e1 ctx) (sens_expr _ _ e2 ctx)
+            end).
+  - refine (match e0_1, e0_2 with
+            | e1, e_lit _ k => liftM (fun z => Z.div z k) (sens_expr _ _ e1 ctx)
+            | e1, e2 => comb_sens (sens_expr _ _ e1 ctx) (sens_expr _ _ e2 ctx)
+            end).
+  - pose (s1 := sens_expr _ _ e0_1 ctx).
+    pose (s2 := sens_expr _ _ e0_2 ctx).
+    apply (comb_sens s1 s2).
+  - pose (s1 := sens_expr _ _ e0_1 ctx).
+    pose (s2 := sens_expr _ _ e0_2 ctx).
+    apply (comb_sens s1 s2).
+  - pose (s1 := sens_expr _ _ e0_1 ctx).
+    pose (s2 := sens_expr _ _ e0_2 ctx).
+    apply (comb_sens s1 s2).
+  - pose (s1 := sens_expr _ _ e0_1 ctx).
+    pose (s2 := sens_expr _ _ e0_2 ctx).
+    apply (comb_sens s1 s2).
+Defined.
+
+Lemma denote_env_var : forall {t ts} (m1 m2 : memory ts) (ctx : @env ts) (x : var t ts) v1 v2 d xd,
+    denote_env ctx m1 m2 ->
+    env_get ctx x = Some d ->
+    mem_get m1 x = v1 ->
+    mem_get m2 x = v2 ->
+    tau_denote_metric t v1 v2 = Some xd ->
+    (xd <= d)%Z.
+Proof.
+  intros t ts m1.
+  generalize dependent t.
+  dependent induction m1.
+  - intros t m2 ctx x v1 v2 d xd Hsens Hd Hv1 Hv2.
+    inversion x.
+  - intros t m2 ctx y v1 v2 d xd Hsens Hd Hv1 Hv2 Hmetric.
+    dependent destruction m2.
+    dependent destruction ctx.
+    + simpl in Hd; inversion Hd.
+    + simpl in Hd.
+      destruct (member_eq tau_eqdec v y).
+      * admit.
+      * dependent destruction ctx.
+        apply IHm1 with (t := t) (m2 := m2) (ctx := ctx).
+
+
+Lemma sens_expr_sound : forall {t ts} (m1 m2 : memory ts) (ctx : @env ts) (e : expr t ts) v1 v2 d vd,
+    denote_env ctx m1 m2 ->
+    sens_expr e ctx = Some d ->
+    sem_expr m1 e = v1 ->
+    sem_expr m2 e = v2 ->
+    tau_denote_metric t v1 v2 = Some vd ->
+    (vd <= d)%Z.
+Proof.
+  intros t ts m1 m2 ctx e.
+  generalize dependent ctx.
+  generalize dependent m2.
+  generalize dependent m1.
+  dependent induction e.
+  - simpl. intros m1 m2 ctx v1 v2 d vd Hmem Hsens Hv1 Hv2 Hvd.
+    inversion Hsens; subst; clear Hsens.
+    rewrite <- Zminus_diag_reverse in Hvd.
+    simpl in Hvd.
+    inversion Hvd; omega.
+  - simpl. intros m1 m2 ctx v1 v2 d vd Hmem Hsens Hv1 Hv2 Hvd.
 
 Lemma assign_sound :
   forall {t ts} (ctx : @env ts) (x : var t ts) (e : expr t ts) d,
