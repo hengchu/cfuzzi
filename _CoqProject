@@ -9,3 +9,4 @@ SyntaxExtension.v
 TypeSystem.v
 VariableDefinitions.v
 Lib.v
+SimpleTypeSystem.v

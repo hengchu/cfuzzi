@@ -204,9 +204,6 @@ Fixpoint tau_denote_metric (t : tau) : Metric (tau_denote t) :=
   | t_bag t => bag_metric (tau_denote_eqdec t)
   end.
 
-Definition dist_relation (t : tau) (v1 v2 : tau_denote t) (z : Z) : Prop :=
-  exists d, tau_denote_metric t v1 v2 = Some d /\ (d <= z)%Z.
-
 Definition tau_denote_dist (t : tau) := option Z.
 Definition env := hlist tau tau_denote_dist.
 Definition env_get {t ts} (x : var t ts) (e : env ts) := h_get e x.

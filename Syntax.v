@@ -57,9 +57,15 @@ Inductive cmd : Type :=
 | i_while : expr -> cmd -> cmd
 | i_seq : cmd -> cmd -> cmd.
 
+Lemma cmd_eqdec : forall c1 c2: cmd,
+    {c1 = c2} + {c1 <> c2}.
+Proof.
+  (* Easy *)
+Admitted.
+
 Notation "'If' e 'then' c1 'else' c2 'end'" := (i_cond e c1 c2) (at level 75).
 Notation "'If' e 'then_' c 'end'" := (i_cond e c nil) (at level 75).
 Notation "'While' e 'do' c 'end'" := (i_while e c) (at level 75).
 Notation "x '<-' e" := (i_base_instr (bi_assign x e)) (at level 75).
 Notation "x '<$-' 'lap(' w ',' e ')'" := (i_base_instr (bi_laplace x w e)) (at level 75).
-Notation "c1 ';;' c2" := (i_seq c1 c2) (at level 75).
+Notation "c1 ';;' c2" := (i_seq c1 c2) (at level 75, right associativity).

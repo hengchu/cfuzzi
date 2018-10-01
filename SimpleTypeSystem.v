@@ -1,10 +1,17 @@
 Require Export Syntax.
-Require Export FMapWeakList.
+Require Export VariableDefinitions.
 Require Import Coq.Bool.Bool.
-
-Module VarMap := Make(StringDec).
+Require Import Coq.Lists.List.
 
 Definition st_env := VarMap.t tau.
+
+Inductive welltyped_val : val -> tau -> Prop :=
+| welltyped_int : forall z, welltyped_val (v_int z) t_int
+| welltyped_bool : forall b, welltyped_val (v_bool b) t_bool
+| welltyped_arr : forall vs t, List.Forall (fun v => welltyped_val v t) vs
+                          -> welltyped_val (v_arr vs) (t_arr t)
+| welltyped_bag : forall vs t, List.Forall (fun v => welltyped_val v t) vs
+                          -> welltyped_val (v_bag vs) (t_bag t).
 
 Inductive welltyped_expr : st_env -> expr -> tau -> Prop :=
 | welltyped_lit : forall env z, welltyped_expr env (e_lit z) t_int

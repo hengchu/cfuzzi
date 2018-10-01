@@ -137,4 +137,80 @@ Section LaplaceDistr.
   Admitted.
 
 End LaplaceDistr.
+
+
+Add Parametric Morphism A : (@mu A) with signature
+    (@eq_distr A) ==> (@feq A) ==> (Ueq) as mu_proper.
+  intros x y Heq f g Hfeq.
+  unfold feq in Hfeq.
+  apply Ueq_trans with (y := mu x g).
+  unfold eq_distr in Heq.
+  - apply mu_stable_eq; auto.
+  - apply Heq.
+Qed.
+
+Definition Mdistr0 {A : Type} : M A := fun _ => 0.
+Hint Unfold Mdistr0.
+
+Definition distr0 {A : Type} : distr A.
+  apply Build_distr with (mu := Mdistr0).
+  - unfold stable_inv.
+    intros f; unfold Mdistr0; simpl; auto.
+  - unfold stable_plus.
+    intros f g Hfg; unfold Mdistr0; simpl; auto.
+  - unfold stable_mult.
+    intros k f; unfold Mdistr0; simpl; auto.
+  - unfold monotonic.
+    intros f g Hfg; unfold Mdistr0; simpl; auto.
+Defined.
+
+Lemma Mlet_range_comp : forall {A} (P : A -> Prop) m f,
+    range P m
+    -> (forall x, P x -> range P (f x))
+    -> range P (Mlet m f).
+Proof.
+  intros A P m f Hm Hf.
+  intros g Hg.
+  simpl; unfold star, unit.
+  unfold range in Hf.
+  unfold range in Hm.
+  rewrite <- Hm; auto.
+Qed.
+
+Lemma range_impl : forall {A} (P Q : A -> Prop) m,
+    range P m
+    -> (forall x, P x -> Q x)
+    -> range Q m.
+Proof.
+  intros A P Q m HP Himpl.
+  unfold range in *.
+  intros f Hf.
+  rewrite <- HP; auto.
+Qed.
+
+Definition iff1 {A} (P Q : A -> Prop) :=
+  forall x, P x <-> Q x.
+
+Add Parametric Morphism A : (@range A)
+    with signature (@iff1 A) ==> (@eq_distr A) ==> (fun P Q => P <-> Q) as range_compat.
+Proof.
+  intros P Q HPQ m n Hmn.
+  split.
+  - intros HP.
+    intros f Hf.
+    unfold range in *.
+    rewrite HP; auto.
+    unfold iff1 in HPQ.
+    intros x HPx.
+    rewrite <- Hf; auto.
+    apply HPQ; auto.
+  - intros HQ.
+    intros f Hf.
+    unfold range in *.
+    rewrite HQ; auto.
+    intros x HQx.
+    rewrite <- Hf; auto.
+    apply HPQ; auto.
+Qed.
+
 End Laplace.
