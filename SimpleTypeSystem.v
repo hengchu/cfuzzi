@@ -8,10 +8,14 @@ Definition st_env := VarMap.t tau.
 Inductive welltyped_val : val -> tau -> Prop :=
 | welltyped_int : forall z, welltyped_val (v_int z) t_int
 | welltyped_bool : forall b, welltyped_val (v_bool b) t_bool
-| welltyped_arr : forall vs t, List.Forall (fun v => welltyped_val v t) vs
-                          -> welltyped_val (v_arr vs) (t_arr t)
-| welltyped_bag : forall vs t, List.Forall (fun v => welltyped_val v t) vs
-                          -> welltyped_val (v_bag vs) (t_bag t).
+| welltyped_arr_nil : forall t, welltyped_val (v_arr v_nil) (t_arr t)
+| welltyped_arr_cons : forall v vs t, welltyped_val v t
+                                 -> welltyped_val (v_arr vs) (t_arr t)
+                                 -> welltyped_val (v_arr (v_cons v vs)) (t_arr t)
+| welltyped_bag_nil : forall t, welltyped_val (v_bag v_nil) (t_bag t)
+| welltyped_bag_cons : forall v vs t, welltyped_val v t
+                                 -> welltyped_val (v_bag vs) (t_bag t)
+                                 -> welltyped_val (v_bag (v_cons v vs)) (t_bag t).
 
 Inductive welltyped_expr : st_env -> expr -> tau -> Prop :=
 | welltyped_lit : forall env z, welltyped_expr env (e_lit z) t_int

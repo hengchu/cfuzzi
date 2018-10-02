@@ -1,8 +1,6 @@
 Require Export ZArith.
-Require Export Hlist.
 Require Export Coq.Lists.List.
 Require Export Coq.Strings.String.
-Require Export Coq.Structures.DecidableType.
 Require Export Program.
 Require Export FMapWeakList.
 Require Export Coq.FSets.FMapInterface.
@@ -56,9 +54,24 @@ Definition tau_denote_eqb {t : tau} : tau_denote t -> tau_denote t -> bool :=
 Inductive val :=
 | v_int : Z -> val
 | v_bool : bool -> val
-| v_arr : list val -> val
-| v_bag : list val -> val.
+| v_arr : val_arr -> val
+| v_bag : val_arr -> val
+with
+val_arr :=
+| v_nil : val_arr
+| v_cons : val -> val_arr -> val_arr.
 
+Scheme val_ind_mut := Induction for val Sort Type
+  with val_arr_ind_mut := Induction for val_arr Sort Type.
+
+(*
+Notation "'[|' '|]'" := (v_nil) (at level 65) : val_scope.
+Notation "v ':|:' vs" := (v_cons v vs) (at level 65, right associativity) : val_scope.
+
+Bind Scope val_scope with val.
+Delimit Scope val_scope with val.
+*)
+(*
 Section Val_Rect.
 
   Variable P : val -> Type.
@@ -96,6 +109,7 @@ Section Val_Rect.
 
 End Val_Rect.
 
+
 Section Val_Ind.
 
   Variable P : val -> Prop.
@@ -117,7 +131,6 @@ Section Val_Ind.
       v.
 End Val_Ind.
 
-Search (list _ -> list _ -> {_ = _} + {_ <> _}).
 
   Ltac solve_false_cases :=
     match goal with
@@ -134,63 +147,50 @@ Search (list _ -> list _ -> {_ = _} + {_ <> _}).
       try (inversion H2)
     end.
 
+*)
 
-Program Fixpoint val_eqdec (v v' : val) : {v = v'} + {v <> v'} :=
-  match v, v' with
-  | v_int z, v_int z' =>
-    if Z.eq_dec z z' then left _ else right _
-  | v_bool b, v_bool b' =>
-    if bool_dec b b' then left _ else right _
-  | v_arr vs, v_arr vs' =>
-    if list_eq_dec val_eqdec vs vs' then left _ else right _
-  | v_bag vs, v_bag vs' =>
-    if list_eq_dec val_eqdec vs vs' then left _ else right _
-  | _, _ => right _
-  end.
-Next Obligation.
-  intros contra; subst.
-  unfold not in *.
-  destruct v'.
-  + apply (H2 z z); split; auto.
-  + apply (H b b); split; auto.
-  + apply (H0 l l); split; auto.
-  + apply (H1 l l); split; auto.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
-Defined.
-Next Obligation.
-  repeat split; solve_false_cases.
+
+Lemma val_eqdec: forall v v' : val, {v = v'} + {v <> v'}.
+Proof.
+  apply (val_ind_mut
+           (fun v => forall v', {v = v'} + {v <> v'})
+           (fun vs => forall vs', {vs = vs'} + {vs <> vs'})
+        ).
+  - intros z; destruct v'; auto.
+    + destruct (Z.eq_dec z z0); subst; auto.
+      right; intros contra; inversion contra; subst; apply n; auto.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+  - intros b; destruct v'; auto.
+    + right; intros contra; inversion contra.
+    + destruct (bool_dec b b0); subst; auto.
+      right; intros contra; inversion contra; subst; exfalso; apply n; auto.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+  - intros vs IH; destruct v'; auto.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+    + destruct (IH v).
+      * subst; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
+    + right; intros contra; inversion contra.
+  - intros vs IH; destruct v'; auto.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+    + right; intros contra; inversion contra.
+    + destruct (IH v).
+      * subst; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
+  - intros vs'; destruct vs'; auto.
+    right; intros contra; inversion contra.
+  - intros v1 IH1 vs1 IH2 vs2.
+    destruct vs2; auto.
+    + right; intros contra; inversion contra.
+    + destruct (IH1 v); destruct (IH2 vs2); subst; auto.
+      * right; intros contra; inversion contra; subst; apply n; auto.
+      * right; intros contra; inversion contra; subst; apply n; auto.
+      * right; intros contra; inversion contra; subst; apply n; auto.
 Defined.
 
 Definition var := string.

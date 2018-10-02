@@ -200,50 +200,187 @@ Section Metrics.
               | _, _ => None
               end.
 
-  Definition val_bag_metric_f (vs1 vs2 : list val) : option Z :=
-         bag_metric_f val_eqdec vs1 vs2.
+  Definition val_bag_metric := bag_metric val_eqdec.
+
+  Fixpoint val_arr_to_list (vs : val_arr) : list val :=
+    match vs with
+    | v_nil => []
+    | v_cons v vs => v :: val_arr_to_list vs
+    end.
+
+  Fixpoint val_arr_from_list (vs : list val) : val_arr :=
+    match vs with
+    | [] => v_nil
+    | v :: vs => v_cons v (val_arr_from_list vs)
+    end.
 
   Fixpoint val_metric_f (v1 v2 : val) {struct v1} : option Z :=
     match v1, v2 with
     | v_int z1, v_int z2 => Z_metric z1 z2
     | v_bool b1, v_bool b2 => bool_metric b1 b2
-    | v_arr vs1, v_arr vs2 =>
-      (fix val_arr_metric_f vs1 vs2 :=
-         match vs1, vs2 with
-         | [], [] => Some 0%Z
-         | v1 :: vs1, v2 :: vs2 =>
-           lift_option2 Z.add (val_metric_f v1 v2) (val_arr_metric_f vs1 vs2)
-         | _, _ => None
-         end) vs1 vs2
-    | v_bag vs1, v_bag vs2 => val_bag_metric_f vs1 vs2
+    | v_arr vs1, v_arr vs2 => val_arr_metric_f vs1 vs2
+    | v_bag vs1, v_bag vs2 => val_bag_metric (val_arr_to_list vs1) (val_arr_to_list vs2)
+    | _, _ => None
+    end
+
+  with
+
+  val_arr_metric_f vs1 vs2 :=
+    match vs1, vs2 with
+    | v_nil, v_nil => Some 0%Z
+    | v_cons v1 vs1, v_cons v2 vs2 =>
+      lift_option2 Z.add (val_metric_f v1 v2) (val_arr_metric_f vs1 vs2)
     | _, _ => None
     end.
 
   Eval compute in (val_metric_f 1 2)%Z.
-  Eval compute in (val_metric_f (v_arr [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z)
-                                (v_arr [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z))%list.
-  Eval compute in (val_metric_f (v_bag [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z)
-                                (v_bag [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z))%list.
+  Eval compute in (val_metric_f (v_arr (val_arr_from_list [v_int 1; v_int 2]%Z))
+                                (v_arr (val_arr_from_list [v_int 2]%Z)))%list.
+  Eval compute in (val_metric_f (v_arr (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                                (v_arr (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric_f (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                                (v_bag (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric_f (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
+                                (v_bag (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
 
   Definition val_metric : Metric val.
   Proof.
-  Admitted.
+    refine (Build_metric val_metric_f _ _ _).
+    {
+      apply (val_ind_mut
+               (fun x => forall y d, val_metric_f x y = Some d -> (0 <= d)%Z)
+               (fun xvs => forall yvs d, (val_metric_f (v_arr xvs) (v_arr yvs) = Some d
+                                  -> (0 <= d)%Z)
+                                 /\ (val_metric_f (v_bag xvs) (v_bag yvs) = Some d
+                                    -> (0 <= d)%Z)
+               )
+            ).
+      - intros z y d Hd.
+        destruct y; inversion Hd; subst; clear Hd.
+        apply Z.abs_nonneg.
+      - intros b y d Hd.
+        destruct y; inversion Hd; subst; clear Hd.
+        destruct (bool_dec b b0); inversion H0; subst; clear H0.
+        omega.
+      - intros xvs IH y d Hd.
+        destruct y; inversion Hd as [Hd']; subst; clear Hd.
+        destruct (IH v d) as [IHarr IHbag].
+        simpl in IHarr; apply IHarr; auto.
+      - intros xvs IH y d Hd.
+        destruct y.
+        + inversion Hd.
+        + inversion Hd.
+        + inversion Hd.
+        + destruct (IH v d) as [IHarr IHbag].
+          simpl in IHbag; apply IHbag; auto.
+      - intros yvs d; simpl.
+        split.
+        + destruct yvs.
+          intros H; inversion H; omega.
+          intros contra; inversion contra.
+        + destruct yvs; simpl.
+          intros H; inversion H; subst; omega.
+          intros H; inversion H; subst.
+          apply Zle_0_nat.
+      - intros v1 IH1 vs1 IH2 vs2 d.
+        split.
+        + intros Hd; destruct vs2 as [|v2 vs2]; inversion Hd as [Hd']; subst; clear Hd.
+          destruct (val_metric_f v1 v2) eqn:Hv;
+            destruct (val_arr_metric_f vs1 vs2) eqn:Hvs;
+            inversion Hd' as [Hd'']; subst; clear Hd'.
+          assert (0 <= z)%Z.
+          { apply IH1 with (y := v2); auto. }
+          assert (0 <= z0)%Z.
+          { destruct (IH2 vs2 z0) as [IHarr IHbag]; apply IHarr; auto. }
+          omega.
+        + intros Hd; destruct vs2 as [|v2 vs2]; inversion Hd as [Hd']; subst; clear Hd.
+          apply Pos2Z.is_nonneg.
+          apply Zle_0_nat.
+    }
+    {
+      apply (val_ind_mut
+               (fun x => forall y, val_metric_f x y = val_metric_f y x)
+               (fun xvs => forall yvs, (val_metric_f (v_arr xvs) (v_arr yvs) =
+                                val_metric_f (v_arr yvs) (v_arr xvs))
+                               /\ (val_metric_f (v_bag xvs) (v_bag yvs) =
+                                  val_metric_f (v_bag yvs) (v_bag xvs)
+                                 ))
+            ).
+      - intros z y; destruct y; auto.
+        simpl. f_equal. rewrite <- Z.abs_opp.
+        rewrite Z.opp_sub_distr.
+        rewrite Z.add_comm.
+        auto.
+      - intros b y; destruct y; auto.
+        simpl. destruct (bool_dec b b0); destruct (bool_dec b0 b); auto.
+        exfalso; apply n; auto.
+        subst. exfalso; apply n; auto.
+      - intros xvs IH y.
+        destruct y; auto.
+        destruct (IH v) as [IHarr IHbag].
+        apply IHarr; auto.
+      - intros xvs IH y.
+        destruct y; auto.
+        destruct (IH v) as [IHarr IHbag].
+        apply IHbag; auto.
+      - intros yvs.
+        destruct yvs; split; auto.
+        simpl.
+        unfold bag_metric_f.
+        rewrite Nat.add_comm.
+        auto.
+      - intros v1 IH1 vs1 IH2 vs2; destruct vs2 as [|v2 vs2]; split; auto.
+        + simpl; unfold bag_metric_f; rewrite Nat.add_comm; auto.
+        + destruct (IH2 vs2) as [IHarr IHbag].
+          simpl. simpl in IHarr. rewrite IHarr. rewrite IH1. auto.
+        + simpl. unfold bag_metric_f. rewrite Nat.add_comm. auto.
+    }
+    {
+      apply (val_ind_mut
+               (fun x => val_metric_f x x = Some 0%Z)
+               (fun xvs => (val_metric_f (v_arr xvs) (v_arr xvs) = Some 0%Z)
+                        /\ (val_metric_f (v_bag xvs) (v_bag xvs) = Some 0%Z))
+
+            ).
+      - intros; simpl.
+        rewrite Z.sub_diag; auto.
+      - intros; simpl.
+        destruct (bool_dec b b).
+        auto.
+        exfalso; apply n; auto.
+      - intros vs IH.
+        destruct IH as [IHarr IHbag]; auto.
+      - intros vs IH.
+        destruct IH as [IHarr IHbag]; auto.
+      - auto.
+      - intros v IH1 vs [IHarr IHbag]; split; auto.
+        + simpl. rewrite IH1; simpl in IHarr; rewrite IHarr.
+          reflexivity.
+        + simpl. unfold bag_metric_f.
+          simpl in IHbag.
+          unfold bag_metric_f in IHbag.
+          simpl.
+          destruct (val_eqdec v v); auto.
+          exfalso; apply n; auto.
+    }
+  Defined.
+
+  Eval compute in (val_metric 1 2)%Z.
+  Eval compute in (val_metric (v_arr (val_arr_from_list [v_int 1; v_int 2]%Z))
+                              (v_arr (val_arr_from_list [v_int 2]%Z)))%list.
+  Eval compute in (val_metric (v_arr (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                              (v_arr (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                              (v_bag (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
+                              (v_bag (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
 
 End Metrics.
 
-Fixpoint tau_denote_metric (t : tau) : Metric (tau_denote t) :=
-  match t with
-  | t_int => Z_metric
-  | t_bool => bool_metric
-  | t_arr t => L1_metric (tau_denote_metric t)
-  | t_bag t => bag_metric (tau_denote_eqdec t)
-  end.
-
-Definition tau_denote_dist (t : tau) := option Z.
-Definition env := hlist tau tau_denote_dist.
-Definition env_get {t ts} (x : var t ts) (e : env ts) := h_get e x.
-Definition env_set {t ts} (x : var t ts) (e : env ts) (d : Z) := h_weak_update (Some d) e x.
-Definition env_del {t ts} (x : var t ts) (e : env ts) := h_weak_update None e x.
+Definition env := VariableDefinitions.VarMap.t Z.
+Definition env_get (x : var) (e : env) := VariableDefinitions.VarMap.find x e.
+Definition env_set (x : var) (e : env) (d : Z) := VariableDefinitions.VarMap.add x d e.
+Definition env_del (x : var) (e : env) := VariableDefinitions.VarMap.remove x e.
 
 Program Fixpoint denote_env {ts} (e : env ts) : memory_relation ts :=
   match e with
