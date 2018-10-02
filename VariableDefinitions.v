@@ -117,13 +117,81 @@ Section Val_Ind.
       v.
 End Val_Ind.
 
-Coercion v_int : Z >-> val.
-Coercion v_bool : bool >-> val.
+Search (list _ -> list _ -> {_ = _} + {_ <> _}).
 
-Lemma val_eqdec : forall v v' : val, {v = v'} + {v <> v'}.
-Proof.
-  (* Use hand written induction principle *)
-Admitted.
+  Ltac solve_false_cases :=
+    match goal with
+    | [
+      |- forall x x', ~(?v1 ?x1 = ?v2 ?x2 /\ ?v3 ?x3 = ?v4 ?x4)
+    ] =>
+      let x1 := fresh "x1" in
+      let x2 := fresh "x2" in
+      let H1 := fresh "H1" in
+      let H2 := fresh "H2" in
+      let contra := fresh "contra" in
+      try (intros x1 x2 contra; inversion contra as [H1 H2]; subst; clear contra);
+      try (inversion H1);
+      try (inversion H2)
+    end.
+
+
+Program Fixpoint val_eqdec (v v' : val) : {v = v'} + {v <> v'} :=
+  match v, v' with
+  | v_int z, v_int z' =>
+    if Z.eq_dec z z' then left _ else right _
+  | v_bool b, v_bool b' =>
+    if bool_dec b b' then left _ else right _
+  | v_arr vs, v_arr vs' =>
+    if list_eq_dec val_eqdec vs vs' then left _ else right _
+  | v_bag vs, v_bag vs' =>
+    if list_eq_dec val_eqdec vs vs' then left _ else right _
+  | _, _ => right _
+  end.
+Next Obligation.
+  intros contra; subst.
+  unfold not in *.
+  destruct v'.
+  + apply (H2 z z); split; auto.
+  + apply (H b b); split; auto.
+  + apply (H0 l l); split; auto.
+  + apply (H1 l l); split; auto.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
+Next Obligation.
+  repeat split; solve_false_cases.
+Defined.
 
 Definition var := string.
 
@@ -182,3 +250,7 @@ Add Parametric Relation T : (VarMap.t T) (@VarMap.Equal T)
     symmetry proved by VarMap_Equal_Sym
     transitivity proved by VarMap_Equal_Trans
       as VarMap_Equal_Equiv.
+
+
+Coercion v_int : Z >-> val.
+Coercion v_bool : bool >-> val.

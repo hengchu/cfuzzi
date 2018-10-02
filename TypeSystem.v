@@ -194,6 +194,41 @@ Section Metrics.
       + rewrite bag_metric_hd; auto.
   Defined.
 
+  Definition lift_option2 {A B C} (f : A -> B -> C) : option A -> option B -> option C :=
+    fun oa ob => match oa, ob with
+              | Some a, Some b => Some (f a b)
+              | _, _ => None
+              end.
+
+  Definition val_bag_metric_f (vs1 vs2 : list val) : option Z :=
+         bag_metric_f val_eqdec vs1 vs2.
+
+  Fixpoint val_metric_f (v1 v2 : val) {struct v1} : option Z :=
+    match v1, v2 with
+    | v_int z1, v_int z2 => Z_metric z1 z2
+    | v_bool b1, v_bool b2 => bool_metric b1 b2
+    | v_arr vs1, v_arr vs2 =>
+      (fix val_arr_metric_f vs1 vs2 :=
+         match vs1, vs2 with
+         | [], [] => Some 0%Z
+         | v1 :: vs1, v2 :: vs2 =>
+           lift_option2 Z.add (val_metric_f v1 v2) (val_arr_metric_f vs1 vs2)
+         | _, _ => None
+         end) vs1 vs2
+    | v_bag vs1, v_bag vs2 => val_bag_metric_f vs1 vs2
+    | _, _ => None
+    end.
+
+  Eval compute in (val_metric_f 1 2)%Z.
+  Eval compute in (val_metric_f (v_arr [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z)
+                                (v_arr [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z))%list.
+  Eval compute in (val_metric_f (v_bag [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z)
+                                (v_bag [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z))%list.
+
+  Definition val_metric : Metric val.
+  Proof.
+  Admitted.
+
 End Metrics.
 
 Fixpoint tau_denote_metric (t : tau) : Metric (tau_denote t) :=
