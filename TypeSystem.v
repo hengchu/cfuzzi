@@ -194,12 +194,6 @@ Section Metrics.
       + rewrite bag_metric_hd; auto.
   Defined.
 
-  Definition lift_option2 {A B C} (f : A -> B -> C) : option A -> option B -> option C :=
-    fun oa ob => match oa, ob with
-              | Some a, Some b => Some (f a b)
-              | _, _ => None
-              end.
-
   Definition val_bag_metric := bag_metric val_eqdec.
 
   Fixpoint val_arr_to_list (vs : val_arr) : list val :=

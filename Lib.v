@@ -214,3 +214,9 @@ Proof.
 Qed.
 
 End Laplace.
+
+Definition lift_option2 {A B C} (f : A -> B -> C) : option A -> option B -> option C :=
+  fun oa ob => match oa, ob with
+            | Some a, Some b => Some (f a b)
+            | _, _ => None
+            end.
