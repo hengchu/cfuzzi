@@ -1,19 +1,6 @@
 Require Export VariableDefinitions.
-Require Export Hlist.
 Require Export Logic.
 Require Export Semantics.
-
-Module TypeSystem(E : Embedding).
-Module APRHL := APRHL(E).
-
-Import E.
-Import APRHL.
-Import APRHL.SEM.
-Import APRHL.SEM.LAP.
-Import APRHL.SEM.LAP.RP.
-Import APRHL.SEM.LAP.RP.PP.
-Import APRHL.SEM.LAP.RP.PP.MP.
-Import APRHL.SEM.LAP.RP.PP.MP.UP.
 
 Section Metrics.
 
@@ -374,6 +361,14 @@ Section Metrics.
 
 End Metrics.
 
+Module TS
+       (E: Embedding)
+       (Lap : Laplace E)
+       (LOGIC: APRHL E Lap).
+
+Module APRHLImpl := LOGIC.
+Import APRHLImpl SEMImpl LAPImpl CARImpl RP PP MP UP EImpl.
+
 Definition env := VariableDefinitions.VarMap.t Z.
 Definition env_get (x : var) (e : env) := VariableDefinitions.VarMap.find x e.
 Definition env_set (x : var) (e : env) (d : Z) := VariableDefinitions.VarMap.add x d e.
@@ -386,9 +381,9 @@ Definition env_update (x : var) (e : env) (od : option Z) :=
 
 Definition denote_env (e : env) : memory_relation :=
   fun m1 m2 => forall x d, VariableDefinitions.VarMap.MapsTo x d e
-                           -> exists v1 v2 d', VariableDefinitions.VarMap.MapsTo x v1 m1 /\
-                                               VariableDefinitions.VarMap.MapsTo x v2 m2 /\
-                                               val_metric v1 v2 = Some d' /\ (d' <= d)%Z.
+                   -> exists v1 v2 d', VariableDefinitions.VarMap.MapsTo x v1 m1 /\
+                                 VariableDefinitions.VarMap.MapsTo x v2 m2 /\
+                                 val_metric v1 v2 = Some d' /\ (d' <= d)%Z.
 
 Definition comb_sens (s1 s2 : option Z) :=
   match s1, s2 with
@@ -589,4 +584,4 @@ Lemma assign_sound :
     ((x <- e) ~_(0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
 Admitted.
 
-End TypeSystem.
+End TS.

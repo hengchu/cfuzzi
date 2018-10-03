@@ -6,12 +6,10 @@ Fixpoint uncurry_P (premises : list Prop) (conclusion : Prop) :=
   | (p :: ps)%list => p -> (uncurry_P ps conclusion)
   end.
 
-Module Type Extension (E: Embedding).
+Module Type Extension (E: Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
 
-Module TS := TypeSystem.TypeSystem(E).
-
-Import TS.
-Import TS.APRHL.
+  Module TSImpl := TypeSystem.TS E Lap LOGIC.
+  Import TSImpl APRHLImpl.
 
 (* The extra syntax we are adding *)
 Parameter syntax : Type.

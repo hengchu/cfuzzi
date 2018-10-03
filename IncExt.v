@@ -1,11 +1,11 @@
 Require Export SyntaxExtension.
 
-Module Increment(E : Embedding) <: Extension(E).
+Module Increment(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
+<: Extension E Lap LOGIC.
 
-  Module TS := TypeSystem.TypeSystem(E).
+  Module TSImpl := TS E Lap LOGIC.
 
-  Import TS.
-  Import TS.APRHL.
+  Import TSImpl APRHLImpl.
 
   Inductive inc_syntax :=
   | inc_cmd : var -> inc_syntax.

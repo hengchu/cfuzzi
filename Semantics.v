@@ -8,15 +8,80 @@ Require Export Setoid.
 
 Require Export Program.
 
-Module Semantics (E : Embedding).
+Module Type SEM (E : Embedding) (LAP : Laplace(E)).
+  Module LAPImpl := LAP.
+  Import LAPImpl CARImpl RP PP MP UP EImpl.
 
-Module LAP := Laplace(E).
-Import E.
-Import LAP.
-Import LAP.RP.
-Import LAP.RP.PP.
-Import LAP.RP.PP.MP.
-Import LAP.RP.PP.MP.UP.
+  Definition memory := VarMap.t val.
+  Definition mem_get := @VarMap.find val.
+  Definition mem_set := @VarMap.add val.
+
+  Definition welltyped_memory (env : st_env) (m : memory) :=
+    forall x t, VarMap.MapsTo x t env -> exists v, VarMap.MapsTo x v m /\ welltyped_val v t.
+
+  Parameter welltyped_memory_equiv_inv :
+    forall env m1 m2,
+      welltyped_memory env m1
+      -> VarMap.Equal m1 m2
+      -> welltyped_memory env m2.
+
+  Parameter welltyped_memory_add :
+    forall env m x v t,
+      welltyped_memory env m
+      -> VarMap.MapsTo x t env
+      -> welltyped_val v t
+      -> welltyped_memory env (VarMap.add x v m).
+
+  Parameter sem_expr : memory -> expr -> option val.
+
+  Parameter sem_expr_val_typed : forall env m e v t,
+    welltyped_expr env e t
+    -> sem_expr m e = Some v
+    -> welltyped_memory env m
+    -> welltyped_val v t.
+
+  Parameter sem_welltyped_expr : forall env m e t,
+    welltyped_expr env e t
+    -> welltyped_memory env m
+    -> exists v, sem_expr m e = Some v.
+
+  Parameter step_base_instr : memory -> base_instr -> distr memory.
+  Parameter step_cmd : memory -> cmd -> distr (cmd * memory).
+
+  Parameter step_welltyped_cmd_preservation : forall env m c,
+    welltyped env c
+    -> welltyped_memory env m
+    -> range (fun cm => welltyped env (fst cm)
+                    /\ welltyped_memory env (snd cm)) (step_cmd m c).
+
+  Parameter step_trans : memory -> cmd -> nat -> distr (cmd * memory).
+  Parameter step_welltyped_trans_preservation : forall env m c n,
+      welltyped env c
+      -> welltyped_memory env m
+      -> range (fun cm => welltyped env (fst cm)
+                      /\ welltyped_memory env (snd cm)) (step_trans m c n).
+
+  Parameter final : cmd -> bool.
+  Parameter step_star : memory -> cmd -> nat -> distr memory.
+  Parameter step_welltyped_star_preservation : forall env m c n,
+    welltyped env c
+    -> welltyped_memory env m
+    -> range (fun m => welltyped_memory env m) (step_star m c n).
+  Parameter step_star_monotonic : forall (c : cmd) (m : memory) (j k: nat),
+      (j <= k)%nat
+      -> le_distr (step_star m c j) (step_star m c k).
+
+  Parameter deno : cmd -> memory -> distr memory.
+  Notation "'[[' c ']]'" := (deno c) (at level 65).
+
+  Definition lossless (c : cmd) :=
+    forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.
+End SEM.
+
+Module Make (E : Embedding) (LAP : Laplace(E)) <: SEM(E)(LAP)
+    with Module LAPImpl := LAP.
+Module LAPImpl := LAP.
+Import LAPImpl CARImpl RP PP MP UP EImpl.
 
 Definition memory := VarMap.t val.
 Definition mem_get := @VarMap.find val.
@@ -599,4 +664,4 @@ Notation "'[[' c ']]'" := (deno c) (at level 65).
 Definition lossless (c : cmd) :=
   forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.
 
-End Semantics.
+End Make.

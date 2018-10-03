@@ -1,11 +1,11 @@
 Require Export SyntaxExtension.
 
-Module Decrement(E: Embedding) <: Extension(E).
+Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
+<: Extension E Lap LOGIC.
 
-  Module TS := TypeSystem.TypeSystem(E).
+  Module TSImpl := TS E Lap LOGIC.
 
-  Import TS.
-  Import TS.APRHL.
+  Import TSImpl APRHLImpl.
 
   Inductive dec_syntax :=
   | dec_cmd : var -> dec_syntax.

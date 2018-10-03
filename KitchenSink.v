@@ -2,12 +2,12 @@ Require Export Syntax.
 Require Export IncExt.
 Require Export DecExt.
 
-Module KitchenSink(E : Embedding).
+Module KitchenSink(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
 
-  Module Inc := Increment(E).
-  Module Dec := Decrement(E).
-  Import Dec TS APRHL.
-  Import Inc TS APRHL.
+  Module Inc := Increment E Lap LOGIC.
+  Module Dec := Decrement E Lap LOGIC.
+  Import Dec TSImpl APRHLImpl.
+  Import Inc TSImpl APRHLImpl.
 
   Definition x := "x"%string.
   Definition y := "y"%string.
@@ -51,10 +51,9 @@ Module KitchenSink(E : Embedding).
       exists 1%Z; auto.
       apply VarMap.find_1; auto.
       Focus 2.
-      (* Blows up because of transparency issues, TODO: fix this by adding
-         module types to everything with clear access paths annotating equality of
-         important types *)
-    Fail apply Dec.typing_rule_sens with (tctx := ctx) (pre := sctx) (post := sctx); auto.
+      apply Dec.typing_rule_sens with (tctx := ctx) (pre := sctx) (post := sctx); auto.
+      exists 1%Z; auto.
+      apply VarMap.find_1; auto.
     Admitted.
 
 End KitchenSink.
