@@ -215,6 +215,12 @@ Qed.
 
 End Laplace.
 
+Definition lift_option {A B} (f : A -> B) : option A -> option B :=
+  fun oa => match oa with
+            | Some a => Some (f a)
+            | None => None
+            end.
+
 Definition lift_option2 {A B C} (f : A -> B -> C) : option A -> option B -> option C :=
   fun oa ob => match oa, ob with
             | Some a, Some b => Some (f a b)

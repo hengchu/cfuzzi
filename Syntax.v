@@ -14,7 +14,9 @@ Inductive expr : Type :=
 | e_lt : expr -> expr -> expr
 | e_eq : expr -> expr -> expr
 | e_and : expr -> expr -> expr
-| e_or : expr -> expr -> expr.
+| e_or : expr -> expr -> expr
+| e_index : expr -> expr -> expr
+| e_length : expr -> expr.
 
 Definition ev := e_var.
 Definition el := e_lit.
@@ -27,6 +29,8 @@ Notation "e1 ':<' e2" := (e_lt e1 e2) (at level 68, no associativity) : expr_sco
 Notation "e1 ':==' e2" := (e_eq e1 e2) (at level 69, no associativity) : expr_scope.
 Notation "e1 ':&&' e2" := (e_and e1 e2) (at level 66, left associativity) : expr_scope.
 Notation "e1 ':||' e2" := (e_or e1 e2) (at level 67, left associativity) : expr_scope.
+Notation "e1 '[' e2 ']'" := (e_index e1 e2) (at level 63, no associativity) : expr_scope.
+Notation "'len(' e ')'" := (e_length e) (at level 63) : expr_scope.
 
 Bind Scope expr_scope with expr.
 Delimit Scope expr_scope with expr.
@@ -48,7 +52,9 @@ Inductive base_instr : Type :=
 | bi_laplace : var
                -> positive (* width *)
                -> expr
-               -> base_instr.
+               -> base_instr
+| bi_index_assign : var -> expr -> expr -> base_instr
+| bi_length_assign : var -> expr -> base_instr.
 
 Inductive cmd : Type :=
 | i_skip : cmd
@@ -66,6 +72,8 @@ Admitted.
 Notation "'If' e 'then' c1 'else' c2 'end'" := (i_cond e c1 c2) (at level 75).
 Notation "'If' e 'then_' c 'end'" := (i_cond e c nil) (at level 75).
 Notation "'While' e 'do' c 'end'" := (i_while e c) (at level 75).
+Notation "x '[' e1 ']' '<-' e2" := (i_base_instr (bi_index_assign x e1 e2)) (at level 75).
+Notation "'len(' x ')' '<-' e" := (i_base_instr (bi_length_assign x e)) (at level 75).
 Notation "x '<-' e" := (i_base_instr (bi_assign x e)) (at level 75).
 Notation "x '<$-' 'lap(' w ',' e ')'" := (i_base_instr (bi_laplace x w e)) (at level 75).
 Notation "c1 ';;' c2" := (i_seq c1 c2) (at level 75, right associativity).

@@ -10,3 +10,6 @@ TypeSystem.v
 VariableDefinitions.v
 Lib.v
 SimpleTypeSystem.v
+IncExt.v
+DecExt.v
+KitchenSink.v

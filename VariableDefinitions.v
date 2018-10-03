@@ -54,8 +54,8 @@ Definition tau_denote_eqb {t : tau} : tau_denote t -> tau_denote t -> bool :=
 Inductive val :=
 | v_int : Z -> val
 | v_bool : bool -> val
-| v_arr : val_arr -> val
-| v_bag : val_arr -> val
+| v_arr : tau -> val_arr -> val
+| v_bag : tau -> val_arr -> val
 with
 val_arr :=
 | v_nil : val_arr
@@ -63,92 +63,6 @@ val_arr :=
 
 Scheme val_ind_mut := Induction for val Sort Type
   with val_arr_ind_mut := Induction for val_arr Sort Type.
-
-(*
-Notation "'[|' '|]'" := (v_nil) (at level 65) : val_scope.
-Notation "v ':|:' vs" := (v_cons v vs) (at level 65, right associativity) : val_scope.
-
-Bind Scope val_scope with val.
-Delimit Scope val_scope with val.
-*)
-(*
-Section Val_Rect.
-
-  Variable P : val -> Type.
-  Variable P_arr : list val -> Type.
-  Variable P_bag : list val -> Type.
-
-  Hypothesis int_case : forall z, P (v_int z).
-  Hypothesis bool_case : forall b, P (v_bool b).
-
-  Hypothesis arr_val : forall vs, P_arr vs -> P (v_arr vs).
-  Hypothesis arr_nil : P_arr [].
-  Hypothesis arr_case : forall v vs, P v -> P_arr vs -> P_arr (v :: vs).
-
-  Hypothesis bag_val : forall vs, P_bag vs -> P (v_bag vs).
-  Hypothesis bag_nil : P_bag [].
-  Hypothesis bag_case : forall v vs, P v -> P_bag vs -> P_bag (v :: vs).
-
-  Fixpoint val_rect1 (v : val) : P v :=
-    match v with
-    | v_int z => int_case z
-    | v_bool b => bool_case b
-    | v_arr vs => arr_val vs
-                         ((list_rect
-                             P_arr
-                             arr_nil
-                             (fun v vs Pvs => arr_case v vs (val_rect1 v) Pvs))
-                            vs)
-    | v_bag vs => bag_val vs
-                         (list_rect
-                            P_bag
-                            bag_nil
-                            (fun v vs Pvs => bag_case v vs (val_rect1 v) Pvs)
-                         vs)
-    end.
-
-End Val_Rect.
-
-
-Section Val_Ind.
-
-  Variable P : val -> Prop.
-  Hypothesis z_case : forall z, P (v_int z).
-  Hypothesis b_case : forall b, P (v_bool b).
-  Hypothesis arr_case : forall ls, Forall P ls -> P (v_arr ls).
-  Hypothesis bag_case : forall ls, Forall P ls -> P (v_bag ls).
-
-  Definition val_ind1 (v : val) : P v :=
-    val_rect1
-      P (Forall P) (Forall P)
-      z_case b_case
-      arr_case
-      (Forall_nil P)
-      (fun v vs pv pvs => Forall_cons v pv pvs)
-      bag_case
-      (Forall_nil P)
-      (fun v vs pv pvs => Forall_cons v pv pvs)
-      v.
-End Val_Ind.
-
-
-  Ltac solve_false_cases :=
-    match goal with
-    | [
-      |- forall x x', ~(?v1 ?x1 = ?v2 ?x2 /\ ?v3 ?x3 = ?v4 ?x4)
-    ] =>
-      let x1 := fresh "x1" in
-      let x2 := fresh "x2" in
-      let H1 := fresh "H1" in
-      let H2 := fresh "H2" in
-      let contra := fresh "contra" in
-      try (intros x1 x2 contra; inversion contra as [H1 H2]; subst; clear contra);
-      try (inversion H1);
-      try (inversion H2)
-    end.
-
-*)
-
 
 Lemma val_eqdec: forall v v' : val, {v = v'} + {v <> v'}.
 Proof.
@@ -168,19 +82,21 @@ Proof.
       right; intros contra; inversion contra; subst; exfalso; apply n; auto.
     + right; intros contra; inversion contra.
     + right; intros contra; inversion contra.
-  - intros vs IH; destruct v'; auto.
+  - intros t vs IH; destruct v'; auto.
     + right; intros contra; inversion contra.
     + right; intros contra; inversion contra.
-    + destruct (IH v).
-      * subst; auto.
+    + destruct (IH v); destruct (tau_eqdec t t0); subst; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
       * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
     + right; intros contra; inversion contra.
-  - intros vs IH; destruct v'; auto.
+  - intros t vs IH; destruct v'; auto.
     + right; intros contra; inversion contra.
     + right; intros contra; inversion contra.
     + right; intros contra; inversion contra.
-    + destruct (IH v).
-      * subst; auto.
+    + destruct (IH v); destruct (tau_eqdec t t0); subst; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
+      * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
       * right; intros contra; inversion contra; subst; exfalso; apply n; auto.
   - intros vs'; destruct vs'; auto.
     right; intros contra; inversion contra.
@@ -192,6 +108,38 @@ Proof.
       * right; intros contra; inversion contra; subst; apply n; auto.
       * right; intros contra; inversion contra; subst; apply n; auto.
 Defined.
+
+Definition tau_default_val (t : tau) :=
+  match t with
+  | t_int => v_int 0%Z
+  | t_bool => v_bool false
+  | t_arr t => v_arr t v_nil
+  | t_bag t => v_bag t v_nil
+  end.
+
+Search (Z -> nat).
+
+Fixpoint val_arr_index_nat (vs : val_arr) (idx : nat) : option val :=
+  match vs, idx with
+  | v_nil, _ => None
+  | v_cons v _, O => Some v
+  | v_cons v vs, S n' => val_arr_index_nat vs n'
+  end.
+
+Definition val_arr_index (vs : val_arr) (idx : Z) :=
+  match idx with
+  | Z0 => val_arr_index_nat vs O
+  | Zpos p => val_arr_index_nat vs (Pos.to_nat p)
+  | Zneg _ => None
+  end.
+
+Fixpoint val_arr_length_nat (vs : val_arr) : nat :=
+  match vs with
+  | v_nil => O
+  | v_cons v vs => S (val_arr_length_nat vs)
+  end.
+
+Definition val_arr_length (vs : val_arr) := Z.of_nat (val_arr_length_nat vs).
 
 Definition var := string.
 

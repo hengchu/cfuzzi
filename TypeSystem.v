@@ -1,6 +1,7 @@
 Require Export VariableDefinitions.
 Require Export Hlist.
 Require Export Logic.
+Require Export Semantics.
 
 Module TypeSystem(E : Embedding).
 Module APRHL := APRHL(E).
@@ -212,8 +213,8 @@ Section Metrics.
     match v1, v2 with
     | v_int z1, v_int z2 => Z_metric z1 z2
     | v_bool b1, v_bool b2 => bool_metric b1 b2
-    | v_arr vs1, v_arr vs2 => val_arr_metric_f vs1 vs2
-    | v_bag vs1, v_bag vs2 => val_bag_metric (val_arr_to_list vs1) (val_arr_to_list vs2)
+    | v_arr _ vs1, v_arr _ vs2 => val_arr_metric_f vs1 vs2
+    | v_bag _ vs1, v_bag _ vs2 => val_bag_metric (val_arr_to_list vs1) (val_arr_to_list vs2)
     | _, _ => None
     end
 
@@ -228,14 +229,14 @@ Section Metrics.
     end.
 
   Eval compute in (val_metric_f 1 2)%Z.
-  Eval compute in (val_metric_f (v_arr (val_arr_from_list [v_int 1; v_int 2]%Z))
-                                (v_arr (val_arr_from_list [v_int 2]%Z)))%list.
-  Eval compute in (val_metric_f (v_arr (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
-                                (v_arr (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
-  Eval compute in (val_metric_f (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
-                                (v_bag (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
-  Eval compute in (val_metric_f (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
-                                (v_bag (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
+  Eval compute in (val_metric_f (v_arr t_int (val_arr_from_list [v_int 1; v_int 2]%Z))
+                                (v_arr t_int (val_arr_from_list [v_int 2]%Z)))%list.
+  Eval compute in (val_metric_f (v_arr t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                                (v_arr t_int (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric_f (v_bag t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                                (v_bag t_int (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric_f (v_bag t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
+                                (v_bag t_int (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
 
   Definition val_metric : Metric val.
   Proof.
@@ -243,9 +244,9 @@ Section Metrics.
     {
       apply (val_ind_mut
                (fun x => forall y d, val_metric_f x y = Some d -> (0 <= d)%Z)
-               (fun xvs => forall yvs d, (val_metric_f (v_arr xvs) (v_arr yvs) = Some d
+               (fun xvs => forall t1 t2 yvs d, (val_metric_f (v_arr t1 xvs) (v_arr t2 yvs) = Some d
                                   -> (0 <= d)%Z)
-                                 /\ (val_metric_f (v_bag xvs) (v_bag yvs) = Some d
+                                 /\ (val_metric_f (v_bag t1 xvs) (v_bag t2 yvs) = Some d
                                     -> (0 <= d)%Z)
                )
             ).
@@ -256,18 +257,18 @@ Section Metrics.
         destruct y; inversion Hd; subst; clear Hd.
         destruct (bool_dec b b0); inversion H0; subst; clear H0.
         omega.
-      - intros xvs IH y d Hd.
+      - intros t xvs IH y d Hd.
         destruct y; inversion Hd as [Hd']; subst; clear Hd.
-        destruct (IH v d) as [IHarr IHbag].
+        destruct (IH t t v d) as [IHarr IHbag].
         simpl in IHarr; apply IHarr; auto.
-      - intros xvs IH y d Hd.
+      - intros t xvs IH y d Hd.
         destruct y.
         + inversion Hd.
         + inversion Hd.
         + inversion Hd.
-        + destruct (IH v d) as [IHarr IHbag].
+        + destruct (IH t t v d) as [IHarr IHbag].
           simpl in IHbag; apply IHbag; auto.
-      - intros yvs d; simpl.
+      - intros t1 t2 yvs d; simpl.
         split.
         + destruct yvs.
           intros H; inversion H; omega.
@@ -276,7 +277,7 @@ Section Metrics.
           intros H; inversion H; subst; omega.
           intros H; inversion H; subst.
           apply Zle_0_nat.
-      - intros v1 IH1 vs1 IH2 vs2 d.
+      - intros v1 IH1 vs1 IH2 t1 t2 vs2 d.
         split.
         + intros Hd; destruct vs2 as [|v2 vs2]; inversion Hd as [Hd']; subst; clear Hd.
           destruct (val_metric_f v1 v2) eqn:Hv;
@@ -285,7 +286,7 @@ Section Metrics.
           assert (0 <= z)%Z.
           { apply IH1 with (y := v2); auto. }
           assert (0 <= z0)%Z.
-          { destruct (IH2 vs2 z0) as [IHarr IHbag]; apply IHarr; auto. }
+          { destruct (IH2 t1 t2 vs2 z0) as [IHarr IHbag]; apply IHarr; auto. }
           omega.
         + intros Hd; destruct vs2 as [|v2 vs2]; inversion Hd as [Hd']; subst; clear Hd.
           apply Pos2Z.is_nonneg.
@@ -294,10 +295,10 @@ Section Metrics.
     {
       apply (val_ind_mut
                (fun x => forall y, val_metric_f x y = val_metric_f y x)
-               (fun xvs => forall yvs, (val_metric_f (v_arr xvs) (v_arr yvs) =
-                                val_metric_f (v_arr yvs) (v_arr xvs))
-                               /\ (val_metric_f (v_bag xvs) (v_bag yvs) =
-                                  val_metric_f (v_bag yvs) (v_bag xvs)
+               (fun xvs => forall t1 t2 yvs, (val_metric_f (v_arr t1 xvs) (v_arr t2 yvs) =
+                                val_metric_f (v_arr t1 yvs) (v_arr t2 xvs))
+                               /\ (val_metric_f (v_bag t1 xvs) (v_bag t2 yvs) =
+                                  val_metric_f (v_bag t1 yvs) (v_bag t2 xvs)
                                  ))
             ).
       - intros z y; destruct y; auto.
@@ -309,31 +310,31 @@ Section Metrics.
         simpl. destruct (bool_dec b b0); destruct (bool_dec b0 b); auto.
         exfalso; apply n; auto.
         subst. exfalso; apply n; auto.
-      - intros xvs IH y.
+      - intros t xvs IH y.
         destruct y; auto.
-        destruct (IH v) as [IHarr IHbag].
+        destruct (IH t t v) as [IHarr IHbag].
         apply IHarr; auto.
-      - intros xvs IH y.
+      - intros t xvs IH y.
         destruct y; auto.
-        destruct (IH v) as [IHarr IHbag].
+        destruct (IH t t v) as [IHarr IHbag].
         apply IHbag; auto.
-      - intros yvs.
+      - intros t1 t2 yvs.
         destruct yvs; split; auto.
         simpl.
         unfold bag_metric_f.
         rewrite Nat.add_comm.
         auto.
-      - intros v1 IH1 vs1 IH2 vs2; destruct vs2 as [|v2 vs2]; split; auto.
+      - intros v1 IH1 vs1 IH2 t1 t2 vs2; destruct vs2 as [|v2 vs2]; split; auto.
         + simpl; unfold bag_metric_f; rewrite Nat.add_comm; auto.
-        + destruct (IH2 vs2) as [IHarr IHbag].
+        + destruct (IH2 t1 t2 vs2) as [IHarr IHbag].
           simpl. simpl in IHarr. rewrite IHarr. rewrite IH1. auto.
         + simpl. unfold bag_metric_f. rewrite Nat.add_comm. auto.
     }
     {
       apply (val_ind_mut
                (fun x => val_metric_f x x = Some 0%Z)
-               (fun xvs => (val_metric_f (v_arr xvs) (v_arr xvs) = Some 0%Z)
-                        /\ (val_metric_f (v_bag xvs) (v_bag xvs) = Some 0%Z))
+               (fun xvs => forall t1 t2, (val_metric_f (v_arr t1 xvs) (v_arr t2 xvs) = Some 0%Z)
+                        /\ (val_metric_f (v_bag t1 xvs) (v_bag t2 xvs) = Some 0%Z))
 
             ).
       - intros; simpl.
@@ -342,12 +343,14 @@ Section Metrics.
         destruct (bool_dec b b).
         auto.
         exfalso; apply n; auto.
-      - intros vs IH.
-        destruct IH as [IHarr IHbag]; auto.
-      - intros vs IH.
-        destruct IH as [IHarr IHbag]; auto.
+      - intros t vs IH.
+        destruct (IH t t) as [IHarr IHbag]; auto.
+      - intros t vs IH.
+        destruct (IH t t) as [IHarr IHbag]; auto.
       - auto.
-      - intros v IH1 vs [IHarr IHbag]; split; auto.
+      - intros v IH1 vs IH2 t1 t2;
+          destruct (IH2 t1 t2) as [IHarr IHbag];
+          split; auto.
         + simpl. rewrite IH1; simpl in IHarr; rewrite IHarr.
           reflexivity.
         + simpl. unfold bag_metric_f.
@@ -360,14 +363,14 @@ Section Metrics.
   Defined.
 
   Eval compute in (val_metric 1 2)%Z.
-  Eval compute in (val_metric (v_arr (val_arr_from_list [v_int 1; v_int 2]%Z))
-                              (v_arr (val_arr_from_list [v_int 2]%Z)))%list.
-  Eval compute in (val_metric (v_arr (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
-                              (v_arr (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
-  Eval compute in (val_metric (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
-                              (v_bag (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
-  Eval compute in (val_metric (v_bag (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
-                              (v_bag (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
+  Eval compute in (val_metric (v_arr t_int (val_arr_from_list [v_int 1; v_int 2]%Z))
+                              (v_arr t_int (val_arr_from_list [v_int 2]%Z)))%list.
+  Eval compute in (val_metric (v_arr t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                              (v_arr t_int (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric (v_bag t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3; v_int 4; v_int 5]%Z))
+                              (v_bag t_int (val_arr_from_list [v_int 2; v_int 3; v_int 4; v_int 5; v_int 10]%Z)))%list.
+  Eval compute in (val_metric (v_bag t_int (val_arr_from_list [v_int 1; v_int 2; v_int 3]%list))
+                              (v_bag t_int (val_arr_from_list [v_int 3; v_int 2; v_int 1]%list))).
 
 End Metrics.
 
@@ -375,46 +378,17 @@ Definition env := VariableDefinitions.VarMap.t Z.
 Definition env_get (x : var) (e : env) := VariableDefinitions.VarMap.find x e.
 Definition env_set (x : var) (e : env) (d : Z) := VariableDefinitions.VarMap.add x d e.
 Definition env_del (x : var) (e : env) := VariableDefinitions.VarMap.remove x e.
-
-Program Fixpoint denote_env {ts} (e : env ts) : memory_relation ts :=
-  match e with
-  | h_nil => fun _ _ => True
-  | h_cons _ _ sd tl =>
-    match sd with
-    | None => denote_env tl
-    | Some d => fun m1 m2 => denote_env tl m1 m2
-    end
+Definition env_update (x : var) (e : env) (od : option Z) :=
+  match od with
+  | Some d => env_set x e d
+  | None => env_del x e
   end.
 
-Next Obligation.
-
-Module Test.
-Example ts := [t_int; t_int; t_bool]%list.
-Example x := m_first t_int [t_int; t_bool]%list.
-Example y := m_next t_int (m_first t_int [t_bool]%list).
-Example z := m_next t_int (m_next t_int (m_first t_bool []%list)).
-
-Example env1 :=
-  env_cons x 1 (env_cons y 2 (env_cons z 0 env_nil)).
-Example env2 :=
-  env_cons x 1 (env_cons y 2 (env_cons z 5 env_nil)).
-
-Eval simpl in (denote_env env1).
-Eval simpl in (denote_env env2).
-Eval compute in (env_update env1 x 10).
-End Test.
-
-Definition liftM2_option {a b c} : (a -> b -> c) -> (option a -> option b -> option c) :=
-  fun f o1 o2 => match o1, o2 with
-              | Some o1, Some o2 => Some (f o1 o2)
-              | _, _ => None
-              end.
-
-Definition liftM {a b} : (a -> b) -> (option a -> option b) :=
-  fun f o => match o with
-          | Some o => Some (f o)
-          | _ => None
-          end.
+Definition denote_env (e : env) : memory_relation :=
+  fun m1 m2 => forall x d, VariableDefinitions.VarMap.MapsTo x d e
+                           -> exists v1 v2 d', VariableDefinitions.VarMap.MapsTo x v1 m1 /\
+                                               VariableDefinitions.VarMap.MapsTo x v2 m2 /\
+                                               val_metric v1 v2 = Some d' /\ (d' <= d)%Z.
 
 Definition comb_sens (s1 s2 : option Z) :=
   match s1, s2 with
@@ -425,84 +399,194 @@ Definition comb_sens (s1 s2 : option Z) :=
   | _, _ => None
   end.
 
-Fixpoint sens_expr {t : tau} {ts : list tau} (e : expr t ts) (ctx : @env ts) : option Z.
-  destruct e eqn:He.
-  - apply (Some 0%Z).
-  - apply (env_get ctx v).
-  - apply (liftM2_option Z.add (sens_expr _ _ e0_1 ctx) (sens_expr _ _ e0_2 ctx)).
-  - apply (liftM2_option Z.add (sens_expr _ _ e0_1 ctx) (sens_expr _ _ e0_2 ctx)).
-  - refine (match e0_1, e0_2 with
-            | e_lit _ k, e2 => liftM (Z.mul k) (sens_expr _ _ e2 ctx)
-            | e1, e_lit _ k => liftM (Z.mul k) (sens_expr _ _ e1 ctx)
-            | e1, e2 => comb_sens (sens_expr _ _ e1 ctx) (sens_expr _ _ e2 ctx)
-            end).
-  - refine (match e0_1, e0_2 with
-            | e1, e_lit _ k => liftM (fun z => Z.div z k) (sens_expr _ _ e1 ctx)
-            | e1, e2 => comb_sens (sens_expr _ _ e1 ctx) (sens_expr _ _ e2 ctx)
-            end).
-  - pose (s1 := sens_expr _ _ e0_1 ctx).
-    pose (s2 := sens_expr _ _ e0_2 ctx).
-    apply (comb_sens s1 s2).
-  - pose (s1 := sens_expr _ _ e0_1 ctx).
-    pose (s2 := sens_expr _ _ e0_2 ctx).
-    apply (comb_sens s1 s2).
-  - pose (s1 := sens_expr _ _ e0_1 ctx).
-    pose (s2 := sens_expr _ _ e0_2 ctx).
-    apply (comb_sens s1 s2).
-  - pose (s1 := sens_expr _ _ e0_1 ctx).
-    pose (s2 := sens_expr _ _ e0_2 ctx).
-    apply (comb_sens s1 s2).
-Defined.
+Fixpoint sens_expr (ctx : env) (e : expr) : option Z :=
+  match e with
+  | e_lit _ => Some 0%Z
+  | e_var x => env_get x ctx
+  | e_add e1 e2 => lift_option2 Z.add (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_minus e1 e2 => lift_option2 Z.add (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_mult (e_lit z) e2 => lift_option (Z.mul z) (sens_expr ctx e2)
+  | e_mult e1 (e_lit z) => lift_option (fun d => Z.mul d z) (sens_expr ctx e1)
+  | e_mult e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_div e1 (e_lit z) => lift_option
+                           (fun d =>
+                              (* Need to round up to account for remainders *)
+                              if Z.rem d z =? 0
+                              then Z.div d z
+                              else (Z.div d z) + 1)%Z
+                           (sens_expr ctx e1)
+  | e_div e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_lt e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_eq e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_and e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_or e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+                           (* TODO: Fix this *)
+  | _ => None
+  end.
 
-Lemma denote_env_var : forall {t ts} (m1 m2 : memory ts) (ctx : @env ts) (x : var t ts) v1 v2 d xd,
+Lemma sens_expr_sound:
+  forall (m1 m2 : memory) (ctx : env) (tctx : st_env) (e : expr) t ed v1 v2,
+    (* Everything is welltyped *)
+    welltyped_expr tctx e t ->
+    welltyped_memory tctx m1 ->
+    welltyped_memory tctx m2 ->
+    (* Memory satisfies pre-condition *)
     denote_env ctx m1 m2 ->
-    env_get ctx x = Some d ->
-    mem_get m1 x = v1 ->
-    mem_get m2 x = v2 ->
-    tau_denote_metric t v1 v2 = Some xd ->
-    (xd <= d)%Z.
+    (* The expression has bounded sensitivity *)
+    sens_expr ctx e = Some ed ->
+    (* Evaluating the expressions should yield values with distance less than
+       that computed by sens_expr
+     *)
+    sem_expr m1 e = Some v1 ->
+    sem_expr m2 e = Some v2 ->
+    exists dv, val_metric_f v1 v2 = Some dv /\ (dv <= ed)%Z.
 Proof.
-  intros t ts m1.
-  generalize dependent t.
-  dependent induction m1.
-  - intros t m2 ctx x v1 v2 d xd Hsens Hd Hv1 Hv2.
-    inversion x.
-  - intros t m2 ctx y v1 v2 d xd Hsens Hd Hv1 Hv2 Hmetric.
-    dependent destruction m2.
-    dependent destruction ctx.
-    + simpl in Hd; inversion Hd.
-    + simpl in Hd.
-      destruct (member_eq tau_eqdec v y).
-      * admit.
-      * dependent destruction ctx.
-        apply IHm1 with (t := t) (m2 := m2) (ctx := ctx).
-
-
-Lemma sens_expr_sound : forall {t ts} (m1 m2 : memory ts) (ctx : @env ts) (e : expr t ts) v1 v2 d vd,
-    denote_env ctx m1 m2 ->
-    sens_expr e ctx = Some d ->
-    sem_expr m1 e = v1 ->
-    sem_expr m2 e = v2 ->
-    tau_denote_metric t v1 v2 = Some vd ->
-    (vd <= d)%Z.
-Proof.
-  intros t ts m1 m2 ctx e.
+  intros m1 m2 ctx tctx e tau ed v1 v2 Htau_e.
+  generalize dependent v2.
+  generalize dependent v1.
+  generalize dependent ed.
   generalize dependent ctx.
   generalize dependent m2.
   generalize dependent m1.
-  dependent induction e.
-  - simpl. intros m1 m2 ctx v1 v2 d vd Hmem Hsens Hv1 Hv2 Hvd.
-    inversion Hsens; subst; clear Hsens.
-    rewrite <- Zminus_diag_reverse in Hvd.
-    simpl in Hvd.
-    inversion Hvd; omega.
-  - simpl. intros m1 m2 ctx v1 v2 d vd Hmem Hsens Hv1 Hv2 Hvd.
+  induction Htau_e.
+  - simpl; intros; subst.
+    inversion H2; inversion H3; inversion H4; subst; clear H2; clear H3; clear H4.
+    exists 0%Z; simpl.
+    split; try omega.
+    rewrite Z.sub_diag; auto.
+  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hed Hv1 Hv2.
+    simpl in Hed, Hv1, Hv2.
+    apply VarMap.find_2 in Hv1.
+    apply VarMap.find_2 in Hv2.
+    unfold denote_env in Hctx.
+    unfold env_get in Hed.
+    apply VarMap.find_2 in Hed.
+    destruct (Hctx x ed Hed) as [v1' [v2' [d' [Hv1' [Hv2' [Hd' Hdd'] ] ] ] ] ].
+    apply VarMap.find_1 in Hv1.
+    apply VarMap.find_1 in Hv2.
+    apply VarMap.find_1 in Hv1'.
+    apply VarMap.find_1 in Hv2'.
+    rewrite Hv1 in Hv1'.
+    rewrite Hv2 in Hv2'.
+    inversion Hv1'; inversion Hv2'; subst; clear Hv1'; clear Hv2'.
+    exists d'; auto.
+  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hadd Hv1 Hv2.
+    simpl in Hadd, Hv1, Hv2.
+    destruct_sem_expr m1 e1; destruct_sem_expr m2 e1;
+      destruct_sem_expr m1 e2; destruct_sem_expr m2 e2.
+    rewrite H_v_e1 in Hv1; rewrite H_v_e0 in Hv2;
+      rewrite H_v_e2 in Hv1; rewrite H_v_e3 in Hv2.
+    ty_val v_e1; try (apply sem_expr_val_typed with (env := env0) (e := e1) (m := m1); auto).
+    ty_val v_e0; try (apply sem_expr_val_typed with (env := env0) (e := e1) (m := m2); auto).
+    ty_val v_e2; try (apply sem_expr_val_typed with (env := env0) (e := e2) (m := m1); auto).
+    ty_val v_e3; try (apply sem_expr_val_typed with (env := env0) (e := e2) (m := m2); auto).
+    inversion H_type_v_e1;
+      inversion H_type_v_e0;
+      inversion H_type_v_e2;
+      inversion H_type_v_e3;
+      subst;
+      clear H_type_v_e1;
+      clear H_type_v_e0;
+      clear H_type_v_e2;
+      clear H_type_v_e3.
+    inversion Hv1; inversion Hv2; subst; clear Hv1; clear Hv2.
+    destruct (sens_expr ctx e1) eqn:Hadd_1;
+      destruct (sens_expr ctx e2) eqn:Hadd_2;
+      inversion Hadd; subst; clear Hadd.
+    destruct (IHHtau_e1 m1 m2 ctx z3 z z0) as [d_add_1 [H_d_add_1 H_d_add_1_z3] ]; auto.
+    destruct (IHHtau_e2 m1 m2 ctx z4 z1 z2) as [d_add_2 [H_d_add_2 H_d_add_2_z4] ]; auto.
+    simpl. simpl in H_d_add_1, H_d_add_2.
+    inversion H_d_add_1; subst; clear H_d_add_1.
+    inversion H_d_add_2; subst; clear H_d_add_2.
+    exists (Z.abs (z + z1 - (z0 + z2)))%Z; split; try omega; auto.
+    assert (Z.abs (z + z1 - (z0 + z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z.
+    {
+      Search (Z.abs (_ - _))%Z.
+      Search (_ - _)%Z.
+      rewrite Z.sub_add_distr.
+      replace ((z + z1 - z0 - z2))%Z with ((z - z0) + (z1 - z2))%Z by omega.
+      apply Z.abs_triangle.
+    }
+    omega.
+  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hsub Hv1 Hv2.
+    simpl in Hv1, Hv2.
+    destruct_sem_expr m1 e1;
+      destruct_sem_expr m2 e1;
+      destruct_sem_expr m1 e2;
+      destruct_sem_expr m2 e2.
+    rewrite H_v_e1 in Hv1;
+      rewrite H_v_e0 in Hv2;
+      rewrite H_v_e2 in Hv1;
+      rewrite H_v_e3 in Hv2.
+    ty_val v_e1; try (apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1); auto).
+    ty_val v_e0; try (apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1); auto).
+    ty_val v_e2; try (apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2); auto).
+    ty_val v_e3; try (apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2); auto).
+    inversion H_type_v_e1;
+      inversion H_type_v_e0;
+      inversion H_type_v_e2;
+      inversion H_type_v_e3;
+      subst;
+      clear H_type_v_e1;
+      clear H_type_v_e0;
+      clear H_type_v_e2;
+      clear H_type_v_e3.
+    simpl in Hsub.
+    destruct (sens_expr ctx e1) eqn:H_sub1;
+      destruct (sens_expr ctx e2) eqn:H_sub2;
+      inversion Hsub; subst; clear Hsub.
+    destruct (IHHtau_e1 m1 m2 ctx z3 z z0) as [d_sub1 [H_d_sub1 H_d_sub1_ed] ]; auto.
+    destruct (IHHtau_e2 m1 m2 ctx z4 z1 z2) as [d_sub2 [H_d_sub2 H_d_sub2_ed] ]; auto.
+    inversion Hv1; inversion Hv2; subst; clear Hv1; clear Hv2.
+    simpl. exists (Z.abs (z - z1 - (z0 - z2))); split; auto.
+    simpl in H_d_sub1, H_d_sub2;
+      inversion H_d_sub1;
+      inversion H_d_sub2;
+      subst;
+      clear H_d_sub1; clear H_d_sub2.
+    assert (Z.abs (z - z1 - (z0 - z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z. {
+      Search Z.
+      rewrite Z.sub_sub_distr.
+      replace (z - z1 - z0 + z2)%Z with ((z - z0) + (- (z1 - z2)) )%Z by omega.
+      replace (Z.abs (z1 - z2)) with (Z.abs (-(z1-z2)))%Z.
+      apply Z.abs_triangle.
+      apply Z.abs_opp.
+    }
+    omega.
+    (* The cases are easy but tedious... TODO: finish them *)
+Admitted.
+
+Lemma env_update_impl :
+  forall d d' m1 m2 env x,
+    env_get x env = Some d' ->
+    (d <= d')%Z ->
+    denote_env (env_update x env (Some d)) m1 m2 -> denote_env env m1 m2.
+Proof.
+  intros d d' m1 m2 env x.
+  intros Henv Hlt.
+  simpl.
+  unfold denote_env.
+  intros HP x' dist Hx'.
+  destruct (StringDec.eq_dec x x').
+  - subst.
+    destruct (HP x' d) as [v1 [v2 [vd [Hv1 [Hv2 [Hvd Hvdd] ] ] ] ] ]; auto.
+    unfold env_set. apply VarMap.add_1; auto.
+    exists v1, v2, vd.
+    repeat split; auto.
+    apply VarMap.find_1 in Hx'.
+    unfold env_get in Henv.
+    rewrite Hx' in Henv. inversion Henv; subst; clear Henv.
+    omega.
+  - destruct (HP x' dist) as [v1 [v2 [vd [Hv1 [Hv2 [Hvd Hvdd] ] ] ] ] ]; auto.
+    unfold env_set. apply VarMap.add_2; auto.
+    exists v1, v2, vd.
+    repeat split; auto.
+Qed.
 
 Lemma assign_sound :
-  forall {t ts} (ctx : @env ts) (x : var t ts) (e : expr t ts) d,
-    sens_expr ctx e = d ->
-    ([x <- e] ~_(0%R) [x <- e] : denote_env ctx ==> denote_env (env_update ctx x d))%triple.
-(* Use aprhl_assign *)
+  forall (ctx : env) (x : var) (e : expr) d,
+    sens_expr ctx e = Some d ->
+    ((x <- e) ~_(0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
 Admitted.
 
 End TypeSystem.
