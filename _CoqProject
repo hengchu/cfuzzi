@@ -12,3 +12,4 @@ SimpleTypeSystem.v
 IncExt.v
 DecExt.v
 KitchenSink.v
+Pattern.v

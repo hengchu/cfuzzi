@@ -18,6 +18,82 @@ Inductive expr : Type :=
 | e_index : expr -> expr -> expr
 | e_length : expr -> expr.
 
+Ltac prune_eqdec_cases :=
+  try (solve [right; intros contra; exfalso; inversion contra; auto]).
+
+Lemma expr_eqdec : forall e1 e2 : expr,
+    {e1 = e2} + {e1 <> e2}.
+Proof.
+  induction e1.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (Z.eq_dec z z0).
+    + left; subst; auto.
+    + right; intros contra; inversion contra; exfalso; apply n; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (var_eqdec v v0).
+    + left; subst; auto.
+    + right; intros contra; inversion contra; exfalso; apply n; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1_1 e2_1);
+      destruct (IHe1_2 e2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+  - intros e2; destruct e2; prune_eqdec_cases.
+    destruct (IHe1 e2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + left; subst; auto.
+Defined.
+
 Definition ev := e_var.
 Definition el := e_lit.
 
@@ -56,6 +132,42 @@ Inductive base_instr : Type :=
 | bi_index_assign : var -> expr -> expr -> base_instr
 | bi_length_assign : var -> expr -> base_instr.
 
+Lemma base_instr_eqdec : forall b1 b2 : base_instr,
+    {b1 = b2} + {b1 <> b2}.
+Proof.
+  induction b1.
+  - intros b2.
+    destruct b2; prune_eqdec_cases.
+    destruct (var_eqdec v v0);
+      destruct (expr_eqdec e e0);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; left; auto.
+  - intros b2.
+    destruct b2; prune_eqdec_cases.
+    destruct (var_eqdec v v0);
+      destruct (Pos.eq_dec p p0);
+      destruct (expr_eqdec e e0);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; left; auto.
+  - intros b2.
+    destruct b2; prune_eqdec_cases.
+    destruct (var_eqdec v v0);
+      destruct (expr_eqdec e e1);
+      destruct (expr_eqdec e0 e2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    subst; left; auto.
+  - intros b2.
+    destruct b2; prune_eqdec_cases.
+    destruct (var_eqdec v v0);
+      destruct (expr_eqdec e e0);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; auto.
+Defined.
+
 Inductive cmd : Type :=
 | i_skip : cmd
 | i_base_instr : base_instr -> cmd
@@ -66,8 +178,34 @@ Inductive cmd : Type :=
 Lemma cmd_eqdec : forall c1 c2: cmd,
     {c1 = c2} + {c1 <> c2}.
 Proof.
-  (* Easy *)
-Admitted.
+  induction c1.
+  - intros c2; destruct c2; prune_eqdec_cases.
+    auto.
+  - intros c2; destruct c2; prune_eqdec_cases.
+    destruct (base_instr_eqdec b b0);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; auto.
+  - intros c2; destruct c2; prune_eqdec_cases.
+    destruct (expr_eqdec e e0);
+      destruct (IHc1_1 c2_1);
+      destruct (IHc1_2 c2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; auto.
+  - intros c2; destruct c2; prune_eqdec_cases.
+    destruct (expr_eqdec e e0);
+      destruct (IHc1 c2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; auto.
+  - intros c2; destruct c2; prune_eqdec_cases.
+    destruct (IHc1_1 c2_1);
+      destruct (IHc1_2 c2_2);
+      try (solve [right; intros contra; inversion contra; subst; clear contra;
+                  apply n; auto]).
+    + subst; auto.
+Defined.
 
 Notation "'If' e 'then' c1 'else' c2 'end'" := (i_cond e c1 c2) (at level 75).
 Notation "'If' e 'then_' c 'end'" := (i_cond e c nil) (at level 75).

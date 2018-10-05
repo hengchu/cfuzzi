@@ -155,6 +155,8 @@ Module StringDec <: DecidableType.
   Definition eq_dec := string_dec.
 End StringDec.
 
+Definition var_eqdec := StringDec.eq_dec.
+
 Module VarMap := Make(StringDec).
 
 Lemma VarMap_Equal_dec : forall {T}
