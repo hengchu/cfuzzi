@@ -1,5 +1,5 @@
-Require Export Syntax.
-Require Export VariableDefinitions.
+Require Export Cfuzzi.Syntax.
+Require Export Cfuzzi.VariableDefinitions.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
 

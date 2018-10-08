@@ -1,9 +1,10 @@
 Require Export Coq.Classes.Morphisms.
 
-Require Export Lib.
-Require Export VariableDefinitions.
-Require Export Syntax.
-Require Export SimpleTypeSystem.
+Require Export Cfuzzi.Lib.
+Require Export Cfuzzi.VariableDefinitions.
+Require Export Cfuzzi.Syntax.
+Require Export Cfuzzi.SimpleTypeSystem.
+
 Require Export Setoid.
 
 Require Export Program.

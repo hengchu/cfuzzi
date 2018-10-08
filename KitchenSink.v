@@ -1,6 +1,6 @@
-Require Export Syntax.
-Require Export IncExt.
-Require Export DecExt.
+Require Export Cfuzzi.Syntax.
+Require Export Cfuzzi.IncExt.
+Require Export Cfuzzi.DecExt.
 
 Module KitchenSink(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
 

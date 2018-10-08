@@ -1,4 +1,4 @@
-Require Export Syntax.
+Require Export Cfuzzi.Syntax.
 
 Definition uni_var := string.
 

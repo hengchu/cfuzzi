@@ -1,6 +1,6 @@
-Require Export VariableDefinitions.
-Require Export Logic.
-Require Export Semantics.
+Require Export Cfuzzi.VariableDefinitions.
+Require Export Cfuzzi.Logic.
+Require Export Cfuzzi.Semantics.
 
 Section Metrics.
 

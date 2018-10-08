@@ -1,4 +1,4 @@
-Require Export Semantics.
+Require Export Cfuzzi.Semantics.
 Require Export Carac.
 
 Module Type APRHL(E: Embedding) (LAP: Laplace(E)).

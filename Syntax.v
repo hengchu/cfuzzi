@@ -2,7 +2,7 @@ Require Export Coq.Strings.String.
 Require Export ZArith.
 Require Export Coq.Numbers.BinNums.
 Require Import Coq.Lists.List.
-Require Export VariableDefinitions.
+Require Export Cfuzzi.VariableDefinitions.
 
 Inductive expr : Type :=
 | e_lit : Z -> expr

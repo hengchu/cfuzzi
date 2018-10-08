@@ -1,4 +1,4 @@
-Require Export SyntaxExtension.
+Require Export Cfuzzi.SyntaxExtension.
 
 Module Increment(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
 <: Extension E Lap LOGIC.
