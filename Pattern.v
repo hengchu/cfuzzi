@@ -228,11 +228,11 @@ Inductive bi_pat :=
 | bipat_length_assign : var_pat -> expr_pat -> bi_pat.
 
 Fixpoint match_bi (bp : bi_pat) (bi : base_instr) : uni_env -> M_uni uni_env :=
+  fun env =>
   match bp, bi with
   | bipat_wildcard x, _ =>
-    fun env => M_uni_return (VarMap.add x (uni_base_instr bi) env)
+    M_uni_return (VarMap.add x (uni_base_instr bi) env)
   | bipat_laplace vp pp ep, bi_laplace v p e =>
-    fun env =>
       (env1 <-- match_var vp v env ;;;
        env2 <-- match_pos pp p env ;;;
        env3 <-- match_expr ep e env ;;;
@@ -240,14 +240,14 @@ Fixpoint match_bi (bp : bi_pat) (bi : base_instr) : uni_env -> M_uni uni_env :=
        uni_env_union env12 env3)%M_uni
   | bipat_assign vp ep,
     bi_assign v e =>
-    fun env => (
+    (
         env1 <-- match_var vp v env ;;;
         env2 <-- match_expr ep e env ;;;
         uni_env_union env1 env2
       )%M_uni
   | bipat_index_assign vp ep1 ep2,
     bi_index_assign v e1 e2 =>
-    fun env => (
+    (
         env1 <-- match_var vp v env ;;;
         env2 <-- match_expr ep1 e1 env ;;;
         env3 <-- match_expr ep2 e2 env ;;;
@@ -256,12 +256,12 @@ Fixpoint match_bi (bp : bi_pat) (bi : base_instr) : uni_env -> M_uni uni_env :=
       )%M_uni
   | bipat_length_assign vp ep,
     bi_length_assign v e =>
-    fun env => (
+    (
         env1 <-- match_var vp v env ;;;
         env2 <-- match_expr ep e env ;;;
         uni_env_union env1 env2
       )%M_uni
-  | _, _ => fun _ => inl []
+  | _, _ => inl []
   end.
 
 Inductive cmd_pat :=
@@ -273,15 +273,16 @@ Inductive cmd_pat :=
 | cpat_seq : cmd_pat -> cmd_pat -> cmd_pat.
 
 Fixpoint match_cmd (cp : cmd_pat) (c : cmd) : uni_env -> M_uni uni_env :=
+  fun env =>
   match cp, c with
-  | cpat_wildcard x, _ => fun env => M_uni_return (VarMap.add x (uni_cmd c) env)
-  | cpat_skip, i_skip => fun env => M_uni_return env
+  | cpat_wildcard x, _ => M_uni_return (VarMap.add x (uni_cmd c) env)
+  | cpat_skip, i_skip => M_uni_return env
   | cpat_base_instr bp,
     i_base_instr bi =>
-    fun env => match_bi bp bi env
+    match_bi bp bi env
   | cpat_cond ep cp1 cp2,
     i_cond e c1 c2 =>
-    fun env => (
+    (
         env1 <-- match_expr ep e env ;;;
         env2 <-- match_cmd cp1 c1 env ;;;
         env3 <-- match_cmd cp2 c2 env ;;;
@@ -290,19 +291,35 @@ Fixpoint match_cmd (cp : cmd_pat) (c : cmd) : uni_env -> M_uni uni_env :=
       )%M_uni
   | cpat_while ep cp,
     i_while e c =>
-    fun env => (
+    (
         env1 <-- match_expr ep e env ;;;
         env2 <-- match_cmd cp c env ;;;
         uni_env_union env1 env2
       )%M_uni
   | cpat_seq cp1 cp2,
     i_seq c1 c2 =>
-    fun env => (
+    (
         env1 <-- match_cmd cp1 c1 env ;;;
         env2 <-- match_cmd cp2 c2 env ;;;
         uni_env_union env1 env2
       )%M_uni
-  | _, _ => fun _ => inl []
+  | _, _ => inl []
+  end.
+
+(* Match the cmd one sequence at a time, until the pattern is exhausted.
+   Returns the remaining cmd if any, and the unification environment *)
+Fixpoint match_cmd_prefix (cpat : cmd_pat) (c : cmd) : uni_env -> M_uni (uni_env * option cmd) :=
+  fun env =>
+  match cpat, c with
+  | cpat_seq cp1 cp2, i_seq c1 c2 =>
+    (env1 <-- match_cmd cp1 c1 env ;;;
+     match_cmd_prefix cp2 c2 env1)%M_uni
+  | cpat, i_seq c1 c2 =>
+    (env1 <-- match_cmd cpat c1 env ;;;
+     M_uni_return (env1, Some c2))%M_uni
+  | cpat, c =>
+    (env1 <-- match_cmd cpat c env ;;;
+     M_uni_return (env1, None))%M_uni
   end.
 
 (* Here are a bunch of things that make writing patterns a bit easier... *)
@@ -390,13 +407,31 @@ Module TestNotation.
        at("?x", epv "?idx") <- ((epv "?y") !! epv "?idx")%pat
      end
     )%pat.
+
   Definition complex_prog :=
     ("idx" <- 0%Z ;;
     While ("idx" :< len("x"))%expr do
       at("x", "idx") <- "y" !! "idx"
-    end)%cmd.
-  Eval compute in match_cmd complex_pat complex_prog empty_uni_env.
+     end)%cmd.
 
+  Definition complex_pat2 :=
+    ("?idx" <- 0%Z ;;
+     While (epv "?idx") :< len(epv "?x") do
+       at("?x", epv "?idx") <- ((epv "?y") !! epv "?idx")%pat
+     end ;;
+     "?x1" <- "?lit"
+    )%pat.
+
+  Definition complex_prog2 :=
+    ("idx" <- 0%Z ;;
+    While ("idx" :< len("x"))%expr do
+      at("x", "idx") <- "y" !! "idx"
+     end ;;
+    "x1" <- 1%Z ;;
+    "x2" <- 2%Z
+    )%cmd.
+  Eval compute in match_cmd complex_pat complex_prog empty_uni_env.
+  Eval compute in match_cmd_prefix complex_pat2 complex_prog2 empty_uni_env.
 End TestNotation.
 
 (* TODO: setup some kind of correctness lemma that says if we substitute the
