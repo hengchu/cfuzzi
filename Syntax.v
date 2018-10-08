@@ -18,6 +18,9 @@ Inductive expr : Type :=
 | e_index : expr -> expr -> expr
 | e_length : expr -> expr.
 
+Coercion e_var : var >-> expr.
+Coercion e_lit : Z >-> expr.
+
 Ltac prune_eqdec_cases :=
   try (solve [right; intros contra; exfalso; inversion contra; auto]).
 
@@ -105,7 +108,7 @@ Notation "e1 ':<' e2" := (e_lt e1 e2) (at level 68, no associativity) : expr_sco
 Notation "e1 ':==' e2" := (e_eq e1 e2) (at level 69, no associativity) : expr_scope.
 Notation "e1 ':&&' e2" := (e_and e1 e2) (at level 66, left associativity) : expr_scope.
 Notation "e1 ':||' e2" := (e_or e1 e2) (at level 67, left associativity) : expr_scope.
-Notation "e1 '[:' e2 ':]'" := (e_index e1 e2) (at level 63, no associativity) : expr_scope.
+Notation "e1 '!!' e2" := (e_index e1 e2) (at level 63, no associativity) : expr_scope.
 Notation "'len(' e ')'" := (e_length e) (at level 63) : expr_scope.
 
 Bind Scope expr_scope with expr.
@@ -116,11 +119,11 @@ Parameter x : var.
 Parameter y : var.
 Parameter z : var.
 
-Check (ev x :+ ev y :- ev x :* ev x)%expr.
-Check (ev x :< ev y)%expr.
-Check (ev z :&& ev z)%expr.
-Check (ev x :+ ev y :< ev y :* ev y)%expr.
-Check (el 1%Z :< ev x :+ ev y)%expr.
+Check (x :+ y :- x :* x)%expr.
+Check (x :< y)%expr.
+Check (z :&& z)%expr.
+Check (x :+ y :< y :* y)%expr.
+Check (1%Z :< x :+ y)%expr.
 End TestNotations.
 
 Inductive base_instr : Type :=

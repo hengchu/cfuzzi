@@ -18,8 +18,6 @@ Module KitchenSink(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
       inc_cmd x ;;
       dec_cmd x)%cmd.
 
-  Search welltyped.
-
   Goal forall ctx, VarMap.MapsTo x t_int ctx ->
                    VarMap.MapsTo y t_int ctx ->
                    welltyped ctx prog.

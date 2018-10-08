@@ -130,6 +130,9 @@ Inductive expr_pat :=
 | epat_index : expr_pat -> expr_pat -> expr_pat
 | epat_length : expr_pat -> expr_pat.
 
+Definition epv : var_pat -> expr_pat := epat_var.
+Definition epl : Z_pat -> expr_pat := epat_lit.
+
 Definition match_var (vp : var_pat) (v : var) : uni_env -> M_uni uni_env :=
   fun env =>
   match vp with
@@ -303,12 +306,12 @@ Fixpoint match_cmd (cp : cmd_pat) (c : cmd) : uni_env -> M_uni uni_env :=
   end.
 
 (* Here are a bunch of things that make writing patterns a bit easier... *)
-Definition ppat := apat_atom positive.
-Definition zpat := apat_atom Z.
-Definition vpat := apat_atom var.
+Definition ppat : positive -> positive_pat := apat_atom positive.
+Definition zpat : Z -> Z_pat := apat_atom Z.
+Definition vpat : var -> var_pat := apat_atom var.
 
-Coercion ppat : positive >-> atom_pat.
-Coercion zpat : Z >-> atom_pat.
+Coercion ppat : positive >-> positive_pat.
+Coercion zpat : Z >-> Z_pat.
 
 Definition str_uni_var : string -> uni_var := fun x => x.
 Definition ppat_wildcard : uni_var -> positive_pat := apat_uni positive.
@@ -321,6 +324,10 @@ Coercion cpat_wildcard : uni_var >-> cmd_pat.
 Coercion ppat_wildcard : uni_var >-> positive_pat.
 Coercion vpat_wildcard : uni_var >-> var_pat.
 
+Coercion epat_var : var_pat >-> expr_pat.
+Coercion epat_lit : Z_pat >-> expr_pat.
+
+
 Notation "e1 ':+' e2" := (epat_add e1 e2) (at level 65, left associativity) : pat_scope.
 Notation "e1 ':-' e2" := (epat_minus e1 e2) (at level 65, left associativity) : pat_scope.
 Notation "e1 ':*' e2" := (epat_mult e1 e2) (at level 64, left associativity) : pat_scope.
@@ -328,8 +335,8 @@ Notation "e1 ':/' e2" := (epat_div e1 e2) (at level 64, left associativity) : pa
 Notation "e1 ':<' e2" := (epat_lt e1 e2) (at level 68, no associativity) : pat_scope.
 Notation "e1 ':==' e2" := (epat_eq e1 e2) (at level 69, no associativity) : pat_scope.
 Notation "e1 ':&&' e2" := (epat_and e1 e2) (at level 66, left associativity) : pat_scope.
-Notation "e1 '[:' e2 ':]" := (epat_index e1 e2) (at level 63, no associativity) : pat_scope.
-Notation "'len(' e ')'" := (e_length e) (at level 63) : pat_scope.
+Notation "e1 '!!' e2" := (epat_index e1 e2) (at level 63, no associativity) : pat_scope.
+Notation "'len(' e ')'" := (epat_length e) (at level 63) : pat_scope.
 
 Notation "'If' e 'then' c1 'else' c2 'end'" := (cpat_cond e c1 c2) (at level 75) : pat_scope.
 Notation "'If' e 'then_' c 'end'" := (cpat_cond e c cpat_skip) (at level 75) : pat_scope.
@@ -341,6 +348,8 @@ Notation "x '<$-' 'lap(' w ',' e ')'" := (cpat_base_instr (bipat_laplace x w e))
 Notation "c1 ';;' c2" := (cpat_seq c1 c2) (at level 75, right associativity) : pat_scope.
 
 Delimit Scope pat_scope with pat.
+
+Print Coercion Paths string expr_pat.
 
 Definition empty_uni_env := VarMap.empty uni_res.
 
@@ -365,13 +374,29 @@ Module TestNotation.
   Eval compute in match_cmd test_cond_pat test_cond (VarMap.empty uni_res).
 
   Check (len("?x") <- "?y")%pat.
-  Eval compute in match_cmd (len("?x") <- "?y")%pat (len("x") <- ev "y" [: ev "i" :])%cmd empty_uni_env.
+  Eval compute in match_cmd (len("?x") <- "?y")%pat (len("x") <- "y" !! "i")%cmd empty_uni_env.
 
-  Check ("?x" <$- lap("?w", "?e"))%pat.
-  Eval compute in match_cmd ("?x" <$- lap("?w", "?e"))%pat ("x" <$- lap(1%positive, ev "y")) empty_uni_env.
+  (* WARNING: Notice the difference between these subtly different patterns *)
+  Eval compute in match_cmd ("?x" <$- lap("?w", "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
+  Eval compute in match_cmd ("?x" <$- lap("?w", epv "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
+  Eval compute in match_cmd ("?x" <$- lap("?w", vpat "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
 
   Check (at("?x", "?idx") <- "?y")%pat.
-  Eval compute in match_cmd (at("?x", "?idx") <- "?y")%pat (at("x", ev "idx") <- ev "y")%cmd empty_uni_env.
+  Eval compute in match_cmd (at("?x", "?idx") <- "?y")%pat (at("x", ev "idx") <- "y")%cmd empty_uni_env.
+
+  Definition complex_pat :=
+    ("?idx" <- 0%Z ;;
+     While (epv "?idx") :< len(epv "?x") do
+       at("?x", epv "?idx") <- ((epv "?y") !! epv "?idx")%pat
+     end
+    )%pat.
+  Definition complex_prog :=
+    ("idx" <- 0%Z ;;
+    While ("idx" :< len("x"))%expr do
+      at("x", "idx") <- "y" !! "idx"
+    end)%cmd.
+  Eval compute in match_cmd complex_pat complex_prog empty_uni_env.
+
 End TestNotation.
 
 (* TODO: setup some kind of correctness lemma that says if we substitute the

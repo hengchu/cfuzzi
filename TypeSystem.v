@@ -496,8 +496,6 @@ Proof.
     exists (Z.abs (z + z1 - (z0 + z2)))%Z; split; try omega; auto.
     assert (Z.abs (z + z1 - (z0 + z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z.
     {
-      Search (Z.abs (_ - _))%Z.
-      Search (_ - _)%Z.
       rewrite Z.sub_add_distr.
       replace ((z + z1 - z0 - z2))%Z with ((z - z0) + (z1 - z2))%Z by omega.
       apply Z.abs_triangle.
@@ -540,7 +538,6 @@ Proof.
       subst;
       clear H_d_sub1; clear H_d_sub2.
     assert (Z.abs (z - z1 - (z0 - z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z. {
-      Search Z.
       rewrite Z.sub_sub_distr.
       replace (z - z1 - z0 + z2)%Z with ((z - z0) + (- (z1 - z2)) )%Z by omega.
       replace (Z.abs (z1 - z2)) with (Z.abs (-(z1-z2)))%Z.

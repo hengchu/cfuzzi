@@ -117,8 +117,6 @@ Definition tau_default_val (t : tau) :=
   | t_bag t => v_bag t v_nil
   end.
 
-Search (Z -> nat).
-
 Fixpoint val_arr_index_nat (vs : val_arr) (idx : nat) : option val :=
   match vs, idx with
   | v_nil, _ => None
