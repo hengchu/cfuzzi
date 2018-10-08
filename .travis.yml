@@ -1,0 +1,26 @@
+sudo: false
+language: generic
+
+cache:
+  apt: true
+  directories:
+  - $HOME/.opam
+
+addons:
+  apt:
+    sources:
+    - avsm
+    packages:
+    - opam
+
+install:
+- export OPAMROOT=$HOME/.opam
+- if ! [ -e $HOME/.opam/config ]; then opam init -j 2 --compiler=system -n -y; fi
+- eval $(opam config env)
+- opam repo add coq-released http://coq.inria.fr/opam/released || echo "coq-released registered"
+- opam list -i coq.8.8.1 || opam install coq.8.8.1 -y
+
+script:
+- git clone git@github.com:hengchu/random.git ../random
+- make -j -C ../random
+- make -j
