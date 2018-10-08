@@ -437,7 +437,7 @@ Fixpoint step_cmd (m: memory) (c: cmd)
     end
   | i_while e body =>
     match sem_expr m e with
-    | Some (v_bool b) => if b then Munit (body ;; c, m) else Munit (i_skip, m)
+    | Some (v_bool b) => if b then Munit (body ;; c, m)%cmd else Munit (i_skip, m)
     | _ => distr0
     end
   | i_seq i_skip c2 =>
@@ -445,7 +445,7 @@ Fixpoint step_cmd (m: memory) (c: cmd)
   | i_seq c1 c2 =>
     Mlet (step_cmd m c1)
          (fun cm => match cm with
-                  | (c1', m) => Munit ((c1' ;; c2), m)
+                  | (c1', m) => Munit ((c1' ;; c2)%cmd, m)
                   end
          )
 

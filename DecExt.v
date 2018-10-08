@@ -19,7 +19,7 @@ Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
   Definition compile (c : syntax) :=
     match c with
     | dec_cmd x =>
-      (x <- (ev x) :- (el 1%Z))
+      (x <- (ev x) :- (el 1%Z))%cmd
     end.
 
   Coercion compile : syntax >-> cmd.

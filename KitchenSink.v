@@ -13,10 +13,10 @@ Module KitchenSink(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
   Definition y := "y"%string.
 
   Definition prog :=
-    x <- el 1%Z ;;
+    (x <- el 1%Z ;;
       y <- el 2%Z ;;
       inc_cmd x ;;
-      dec_cmd x.
+      dec_cmd x)%cmd.
 
   Search welltyped.
 

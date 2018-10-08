@@ -204,3 +204,6 @@ Add Parametric Relation T : (VarMap.t T) (@VarMap.Equal T)
 
 Coercion v_int : Z >-> val.
 Coercion v_bool : bool >-> val.
+
+Definition str_to_var : string -> var := fun x => x.
+Coercion str_to_var : string >-> var.
