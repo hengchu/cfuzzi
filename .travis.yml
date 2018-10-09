@@ -21,6 +21,7 @@ install:
 - opam list -i coq.8.8.1 || opam install coq.8.8.1 -y
 
 script:
-- git clone git@github.com:hengchu/random.git ../random
+- git clone https://github.com/hengchu/random.git ../random
+- (cd ../random && git checkout v8.8)
 - make -j -C ../random
 - make -j
