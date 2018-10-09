@@ -1,6 +1,9 @@
 sudo: false
 language: generic
 
+before_cache:
+  - rm -rf $HOME/.opam/log
+
 cache:
   apt: true
   directories:
