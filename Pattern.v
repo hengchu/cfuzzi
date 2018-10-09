@@ -10,6 +10,42 @@ Inductive uni_res :=
 | uni_base_instr : base_instr -> uni_res
 | uni_cmd : cmd -> uni_res.
 
+Definition try_get_variable : uni_res -> option var :=
+  fun ur => match ur with
+         | uni_variable v => Some v
+         | _ => None
+         end.
+
+Definition try_get_Z : uni_res -> option Z :=
+  fun ur => match ur with
+         | uni_Z z => Some z
+         | _ => None
+         end.
+
+Definition try_get_positive : uni_res -> option positive :=
+  fun ur => match ur with
+         | uni_positive p => Some p
+         | _ => None
+         end.
+
+Definition try_get_expr : uni_res -> option expr :=
+  fun ur => match ur with
+         | uni_expr e => Some e
+         | _ => None
+         end.
+
+Definition try_get_base_instr : uni_res -> option base_instr :=
+  fun ur => match ur with
+         | uni_base_instr bi => Some bi
+         | _ => None
+         end.
+
+Definition try_get_cmd : uni_res -> option cmd :=
+  fun ur => match ur with
+         | uni_cmd c => Some c
+         | _ => None
+         end.
+
 Lemma uni_res_eqdec : forall ur1 ur2 : uni_res,
     {ur1 = ur2} + {ur1 <> ur2}.
 Proof.
@@ -306,6 +342,8 @@ Fixpoint match_cmd (cp : cmd_pat) (c : cmd) : uni_env -> M_uni uni_env :=
   | _, _ => inl []
   end.
 
+Definition empty_uni_env := VarMap.empty uni_res.
+
 (* Match the cmd one sequence at a time, until the pattern is exhausted.
    Returns the remaining cmd if any, and the unification environment *)
 Fixpoint match_cmd_prefix (cpat : cmd_pat) (c : cmd) : uni_env -> M_uni (uni_env * option cmd) :=
@@ -341,9 +379,8 @@ Coercion cpat_wildcard : uni_var >-> cmd_pat.
 Coercion ppat_wildcard : uni_var >-> positive_pat.
 Coercion vpat_wildcard : uni_var >-> var_pat.
 
-Coercion epat_var : var_pat >-> expr_pat.
+(*Coercion epat_var : var_pat >-> expr_pat.*)
 Coercion epat_lit : Z_pat >-> expr_pat.
-
 
 Notation "e1 ':+' e2" := (epat_add e1 e2) (at level 65, left associativity) : pat_scope.
 Notation "e1 ':-' e2" := (epat_minus e1 e2) (at level 65, left associativity) : pat_scope.
@@ -368,7 +405,6 @@ Delimit Scope pat_scope with pat.
 
 Print Coercion Paths string expr_pat.
 
-Definition empty_uni_env := VarMap.empty uni_res.
 
 Module TestNotation.
   Local Open Scope string_scope.
@@ -396,7 +432,7 @@ Module TestNotation.
   (* WARNING: Notice the difference between these subtly different patterns *)
   Eval compute in match_cmd ("?x" <$- lap("?w", "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
   Eval compute in match_cmd ("?x" <$- lap("?w", epv "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
-  Eval compute in match_cmd ("?x" <$- lap("?w", vpat "?y"))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
+  Eval compute in match_cmd ("?x" <$- lap("?w", epv (vpat "y")))%pat ("x" <$- lap(1%positive, "y")) empty_uni_env.
 
   Check (at("?x", "?idx") <- "?y")%pat.
   Eval compute in match_cmd (at("?x", "?idx") <- "?y")%pat (at("x", ev "idx") <- "y")%cmd empty_uni_env.

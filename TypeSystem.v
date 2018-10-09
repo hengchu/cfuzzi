@@ -378,6 +378,11 @@ Definition env_update (x : var) (e : env) (od : option Z) :=
   | Some d => env_set x e d
   | None => env_del x e
   end.
+Definition env_from_list (xs: list (var * Z)) :=
+  List.fold_right
+    (fun x_s senv => env_set (fst x_s) senv (snd x_s))
+    (@VariableDefinitions.VarMap.empty Z)
+    xs.
 
 Definition denote_env (e : env) : memory_relation :=
   fun m1 m2 => forall x d, VariableDefinitions.VarMap.MapsTo x d e
