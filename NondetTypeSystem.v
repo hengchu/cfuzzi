@@ -165,20 +165,47 @@ Definition if_nonsens_func
   fun uenv senv =>
     (e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
-     c1_ur <-- VariableDefinitions.VarMap.find "?c1" uenv ;;;
-     c1 <-- try_get_cmd c1_ur ;;;
-     c2_ur <-- VariableDefinitions.VarMap.find "?c2" uenv ;;;
-     c2 <-- try_get_cmd c2_ur ;;;
-     many_senv1 <-- recur senv c1 ;;;
-     many_senv2 <-- recur senv c2 ;;;
-     Some (
-       senv1 <-- many_senv1 ;;;
-       senv2 <-- many_senv2 ;;;
-       M_nondet_return (env_max senv1 senv2)
-     )%M_nondet
+     s_e <-- sens_expr senv e ;;;
+     if (s_e >? 0)%Z
+     then None
+     else
+       c1_ur <-- VariableDefinitions.VarMap.find "?c1" uenv ;;;
+       c1 <-- try_get_cmd c1_ur ;;;
+       c2_ur <-- VariableDefinitions.VarMap.find "?c2" uenv ;;;
+       c2 <-- try_get_cmd c2_ur ;;;
+       many_senv1 <-- recur senv c1 ;;;
+       many_senv2 <-- recur senv c2 ;;;
+       Some (
+         senv1 <-- many_senv1 ;;;
+         senv2 <-- many_senv2 ;;;
+         M_nondet_return (env_max senv1 senv2)
+       )%M_nondet
     )%option.
 Definition if_nonsens_rule (recur: env -> cmd -> option (M_nondet env)) :=
   (if_nonsens_pat, if_nonsens_func recur).
+
+Definition while_nonsens_pat :=
+  (While "?e" do
+         "?c"
+   end)%pat.
+Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env)) :=
+  fun uenv senv =>
+    (e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+     e <-- try_get_expr e_ur ;;;
+     s_e <-- sens_expr senv e ;;;
+     if (s_e >? 0)%Z
+     then None
+     else
+       c_ur <-- VariableDefinitions.VarMap.find "?c" uenv ;;;
+       c <-- try_get_cmd c_ur ;;;
+       many_senv' <-- recur senv c ;;;
+       Some (
+         senv' <-- many_senv' ;;;
+         if VariableDefinitions.VarMap.equal Z.eqb senv senv'
+         then M_nondet_return senv'
+         else []
+       )%M_nondet
+    )%option.
 
 Definition is_None (o : option cmd) :=
   match o with
@@ -246,6 +273,10 @@ Eval compute in
 Eval compute in
     checker 100
             (env_from_list [("x", 0%Z); ("y", 1%Z)]%list)
+            cond_prog.
+Eval compute in
+    checker 100
+            (env_from_list [("x", 1%Z); ("y", 1%Z)]%list)
             cond_prog.
 End Tests.
 
