@@ -252,6 +252,14 @@ Definition cond_prog :=
    else assn_prog "y"
    end)%cmd.
 
+Eval compute in env_max
+                  (env_from_list [("x", 2%Z)]%list)
+                  (env_from_list [("x", 1%Z); ("y", 10%Z)]%list).
+
+Eval compute in env_max
+                  (env_from_list [("x", 1%Z); ("y", 10%Z)]%list)
+                  (env_from_list [("x", 2%Z)]%list).
+
 Eval compute in
     search [assign_rule]
            (assn_prog "x")

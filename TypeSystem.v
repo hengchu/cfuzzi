@@ -406,16 +406,14 @@ Definition max_sens (s1 s2 : option Z) :=
   | _, _ => None
   end.
 
-Definition env_max_l (e1 e2 : env) :=
-  VarMap.fold (fun x s acc =>
-                 env_update x acc (max_sens (Some s) (VariableDefinitions.VarMap.find x e2)))
-              (@VariableDefinitions.VarMap.empty Z)
-              e1.
-Definition env_max_r (e1 e2 : env) :=
-  env_max_l e2 e1.
 Definition env_max (e1 e2 : env) :=
-  let e12 := env_max_l e1 e2 in
-  env_max_r e12 e2.
+  VarMap.fold (fun x s1 acc =>
+                 match VariableDefinitions.VarMap.find x e2 with
+                 | None => env_update x acc None
+                 | Some s2 => env_update x acc (Some (Z.max s1 s2))
+                 end)
+              e1
+              (@VariableDefinitions.VarMap.empty Z).
 
 Fixpoint sens_expr (ctx : env) (e : expr) : option Z :=
   match e with
