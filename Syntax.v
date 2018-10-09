@@ -178,6 +178,24 @@ Inductive cmd : Type :=
 | i_while : expr -> cmd -> cmd
 | i_seq : cmd -> cmd -> cmd.
 
+Fixpoint mvs (c: cmd) : list var :=
+  match c with
+  | i_skip => []
+  | i_base_instr bi =>
+    match bi with
+    | bi_assign x _ => [x]
+    | bi_laplace x _ _ => [x]
+    | bi_index_assign x _ _ => [x]
+    | bi_length_assign x _ => [x]
+    end
+  | i_cond _ c1 c2 =>
+    mvs c1 ++ mvs c2
+  | i_while _ c =>
+    mvs c
+  | i_seq c1 c2 =>
+    mvs c1 ++ mvs c2
+  end.
+
 Lemma cmd_eqdec : forall c1 c2: cmd,
     {c1 = c2} + {c1 <> c2}.
 Proof.
