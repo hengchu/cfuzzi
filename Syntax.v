@@ -18,6 +18,22 @@ Inductive expr : Type :=
 | e_index : expr -> expr -> expr
 | e_length : expr -> expr.
 
+Fixpoint fvs (e: expr) : list var :=
+  match e with
+  | e_lit _ => []
+  | e_var x => [x]
+  | e_add e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_minus e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_mult e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_div e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_lt e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_eq e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_and e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_or e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_index e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_length e => fvs e
+  end.
+
 Coercion e_var : var >-> expr.
 Coercion e_lit : Z >-> expr.
 

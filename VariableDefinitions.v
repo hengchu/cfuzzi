@@ -205,3 +205,6 @@ Coercion v_bool : bool >-> val.
 
 Definition str_to_var : string -> var := fun x => x.
 Coercion str_to_var : string >-> var.
+
+Definition varmap_from_list {A: Type} (xs: list (var * A)%type) : VarMap.t A :=
+  List.fold_right (fun xa m => VarMap.add (fst xa) (snd xa) m) (@VarMap.empty A) xs.

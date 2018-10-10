@@ -371,6 +371,7 @@ Coercion zpat : Z >-> Z_pat.
 Definition str_uni_var : string -> uni_var := fun x => x.
 Definition ppat_wildcard : uni_var -> positive_pat := apat_uni positive.
 Definition vpat_wildcard : uni_var -> var_pat := apat_uni var.
+Definition zpat_wildcard : uni_var -> Z_pat := apat_uni Z.
 
 Coercion str_uni_var : string >-> uni_var.
 Coercion epat_wildcard : uni_var >-> expr_pat.
@@ -378,6 +379,7 @@ Coercion bipat_wildcard : uni_var >-> bi_pat.
 Coercion cpat_wildcard : uni_var >-> cmd_pat.
 Coercion ppat_wildcard : uni_var >-> positive_pat.
 Coercion vpat_wildcard : uni_var >-> var_pat.
+Coercion zpat_wildcard : uni_var >-> Z_pat.
 
 (*Coercion epat_var : var_pat >-> expr_pat.*)
 Coercion epat_lit : Z_pat >-> expr_pat.
