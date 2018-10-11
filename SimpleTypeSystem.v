@@ -26,42 +26,47 @@ Qed.
 Hint Resolve tau_default_welltyped.
 
 Lemma val_arr_index_nat_welltyped :
-  forall t vs idx v,
-    welltyped_val (v_arr t vs) (t_arr t)
+  forall t1 t2 vs idx v,
+    welltyped_val (v_arr t1 vs) (t_arr t2)
     -> val_arr_index_nat vs idx = Some v
-    -> welltyped_val v t.
+    -> welltyped_val v t2.
 Proof.
-  intros t vs idx v Htyped.
-  remember (v_arr t vs) as varr.
-  remember (t_arr t) as tarr.
+  intros t1 t2 vs idx v Htyped.
+  remember (v_arr t1 vs) as varr.
+  remember (t_arr t2) as tarr.
   generalize dependent idx.
-  generalize dependent t.
+  generalize dependent t1.
+  generalize dependent t2.
   generalize dependent v.
   generalize dependent vs.
   induction Htyped; try (solve [intros vs v t Harr contra; inversion contra]).
-  - intros vs v t' Hvarr Htarr idx Hv.
+  - intros vs v t2 Hvarr t1 Htarr idx Hv.
+    inversion Hvarr.
+  - intros vs v t2 Hvarr t1 Htarr idx Hv.
+    inversion Hvarr.
+  - intros vs v t2 Hvarr t1 Htarr idx Hv.
     inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
     unfold val_arr_index in Hv.
     simpl in Hv; inversion Hv.
-  - intros vs' v' t' Hvarr Htarr idx Hv.
+  - intros vs' v' t2 Hvarr t1 Htarr idx Hv.
     inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
     destruct idx as [|idx].
     + simpl in Hv; inversion Hv; subst; auto.
     + simpl in Hv; inversion Hv; subst; auto.
-      apply IHHtyped2 with (vs0 := vs) (idx := idx); auto.
-  - intros vs v t' Hvarr Htarr idx Hv.
+      apply IHHtyped2 with (vs0 := vs) (idx := idx) (t3 := t1); auto.
+  - intros vs v t2 Hvarr t1 Htarr idx Hv.
     inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
-  - intros vs' v' t' Hvarr Htarr idx Hv.
+  - intros vs' v' t2 Hvarr t1 Htarr idx Hv.
     inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
 Qed.
 
 Lemma val_arr_index_welltyped :
-  forall t vs idx v,
-    welltyped_val (v_arr t vs) (t_arr t)
+  forall t1 t2 vs idx v,
+    welltyped_val (v_arr t1 vs) (t_arr t2)
     -> val_arr_index vs idx = Some v
-    -> welltyped_val v t.
+    -> welltyped_val v t2.
 Proof.
-  intros t vs idx v Htyped Hv.
+  intros t1 t2 vs idx v Htyped Hv.
   destruct idx eqn:Hidx.
   - simpl in Hv; inversion Hv; subst; clear Hv.
     eapply val_arr_index_nat_welltyped; eauto.
@@ -71,48 +76,63 @@ Proof.
 Qed.
 
 Lemma val_bag_index_nat_welltyped :
-  forall t vs idx v,
-    welltyped_val (v_bag t vs) (t_bag t)
+  forall t1 t2 vs idx v,
+    welltyped_val (v_bag t1 vs) (t_bag t2)
     -> val_arr_index_nat vs idx = Some v
-    -> welltyped_val v t.
+    -> welltyped_val v t2.
 Proof.
-  intros t vs idx v Htyped.
-  remember (v_bag t vs) as varr.
-  remember (t_bag t) as tarr.
+  intros t1 t2 vs idx v Htyped.
+  remember (v_bag t1 vs) as vbag.
+  remember (t_bag t2) as tbag.
   generalize dependent idx.
-  generalize dependent t.
+  generalize dependent t1.
+  generalize dependent t2.
   generalize dependent v.
   generalize dependent vs.
-  induction Htyped; try (solve [intros vs v t Harr contra; inversion contra]).
-  - intros vs v t' Hvarr Htarr idx Hv.
-    inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
-  - intros vs' v' t' Hvarr Htarr idx Hv.
-    inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
-  - intros vs v t' Hvarr Htarr idx Hv.
-    inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
+  induction Htyped; try (solve [intros vs v t Hbag contra; inversion contra]).
+  - intros vs v t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag.
+  - intros vs v t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag.
+  - intros vs v t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag.
+  - intros vs' v' t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag.
+  - intros vs v t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag; inversion Htbag; subst; clear Hvbag; clear Htbag.
     unfold val_arr_index in Hv.
     simpl in Hv; inversion Hv.
-  - intros vs' v' t' Hvarr Htarr idx Hv.
-    inversion Hvarr; inversion Htarr; subst; clear Hvarr; clear Htarr.
+  - intros vs' v' t2 Hvbag t1 Htbag idx Hv.
+    inversion Hvbag; inversion Htbag; subst; clear Hvbag; clear Htbag.
     destruct idx as [|idx].
     + simpl in Hv; inversion Hv; subst; auto.
     + simpl in Hv; inversion Hv; subst; auto.
-      apply IHHtyped2 with (vs0 := vs) (idx := idx); auto.
+      apply IHHtyped2 with (vs0 := vs) (idx := idx) (t3 := t1); auto.
 Qed.
 
 Lemma val_bag_index_welltyped :
-  forall t vs idx v,
-    welltyped_val (v_bag t vs) (t_bag t)
+  forall t1 t2 vs idx v,
+    welltyped_val (v_bag t1 vs) (t_bag t2)
     -> val_arr_index vs idx = Some v
-    -> welltyped_val v t.
+    -> welltyped_val v t2.
 Proof.
-  intros t vs idx v Htyped Hv.
+  intros t1 t2 vs idx v Htyped Hv.
   destruct idx eqn:Hidx.
   - simpl in Hv; inversion Hv; subst; clear Hv.
     eapply val_bag_index_nat_welltyped; eauto.
   - simpl in Hv; inversion Hv; subst; clear Hv.
     eapply val_bag_index_nat_welltyped; eauto.
   - simpl in Hv; inversion Hv.
+Qed.
+
+Lemma welltyped_val_uniq : forall v t1 t2,
+    welltyped_val v t1
+    -> welltyped_val v t2
+    -> t1 = t2.
+Proof.
+  intros v t1 t2 Ht1.
+  generalize dependent t2.
+  induction Ht1; try (solve [intros t2 Ht2; inversion Ht2; auto]).
 Qed.
 
 Inductive welltyped_expr : st_env -> expr -> tau -> Prop :=
