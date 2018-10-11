@@ -139,6 +139,52 @@ Fixpoint val_arr_length_nat (vs : val_arr) : nat :=
 
 Definition val_arr_length (vs : val_arr) := Z.of_nat (val_arr_length_nat vs).
 
+Fixpoint val_arr_update_nat (vs: val_arr) (idx: nat) (v: val) : option val_arr :=
+  match vs, idx with
+  | v_nil, _ => None
+  | v_cons _ vs, O => Some (v_cons v vs)
+  | v_cons v vs, S n =>
+    match val_arr_update_nat vs n v with
+    | None => None
+    | Some vs' => Some (v_cons v vs')
+    end
+  end.
+
+Fixpoint val_arr_to_list (vs : val_arr) : list val :=
+  match vs with
+  | v_nil => []
+  | v_cons v vs => v :: val_arr_to_list vs
+  end.
+
+Fixpoint val_arr_from_list (vs : list val) : val_arr :=
+  match vs with
+  | [] => v_nil
+  | v :: vs => v_cons v (val_arr_from_list vs)
+  end.
+
+Fixpoint val_arr_update (vs: val_arr) (idx: Z) (v: val) : option val_arr :=
+  match idx with
+  | Z0 => val_arr_update_nat vs O v
+  | Zpos idx => val_arr_update_nat vs (Pos.to_nat idx) v
+  | Zneg _ => None
+  end.
+
+Fixpoint val_arr_update_length_nat (t : tau) (vs: val_arr) (len: nat): val_arr :=
+  match vs, len with
+  | _, O => v_nil
+  | v_cons v vs, S n =>
+    v_cons v (val_arr_update_length_nat t vs n)
+  | v_nil, n =>
+    val_arr_from_list (repeat (tau_default_val t) n)
+  end.
+
+Definition val_arr_update_length (t : tau) (vs : val_arr) (len: Z): option val_arr :=
+  match len with
+  | Z0 => Some (val_arr_update_length_nat t vs O)
+  | Zpos len => Some (val_arr_update_length_nat t vs (Pos.to_nat len))
+  | Zneg _ => None
+  end.
+
 Definition var := string.
 
 Module StringDec <: DecidableType.

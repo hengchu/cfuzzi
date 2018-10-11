@@ -1,7 +1,8 @@
 Require Export Coq.Classes.Morphisms.
+Require Import Coq.Reals.Reals.
 
 Require Export Cfuzzi.Lib.
-Require Export Cfuzzi.VariableDefinitions.
+Require Export Cfuzzi.BaseDefinitions.
 Require Export Cfuzzi.Syntax.
 Require Export Cfuzzi.SimpleTypeSystem.
 
@@ -33,6 +34,12 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
       -> welltyped_val v t
       -> welltyped_memory env (VarMap.add x v m).
 
+  Parameter welltyped_memory_val : forall env m x v (t : tau),
+      welltyped_memory env m
+      -> VarMap.MapsTo x t env
+      -> VarMap.MapsTo x v m
+      -> welltyped_val v t.
+
   Parameter sem_expr : memory -> expr -> option val.
 
   Parameter sem_expr_val_typed : forall env m e v t,
@@ -40,11 +47,6 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
     -> sem_expr m e = Some v
     -> welltyped_memory env m
     -> welltyped_val v t.
-
-  Parameter sem_welltyped_expr : forall env m e t,
-    welltyped_expr env e t
-    -> welltyped_memory env m
-    -> exists v, sem_expr m e = Some v.
 
   Parameter step_base_instr : memory -> base_instr -> distr memory.
   Parameter step_cmd : memory -> cmd -> distr (cmd * memory).
@@ -330,119 +332,6 @@ Proof.
     + constructor.
 Qed.
 
-Lemma sem_welltyped_expr : forall env m e t,
-    welltyped_expr env e t
-    -> welltyped_memory env m
-    -> exists v, sem_expr m e = Some v.
-Proof.
-  intros env m e t H.
-  generalize dependent m.
-  induction H.
-  - intros m Hmem; exists (v_int z); auto.
-  - intros m Hmem. unfold welltyped_memory in Hmem.
-    apply Hmem in H.
-    destruct H as [v [Hx_v Htau_v]].
-    exists v; simpl.
-    apply VarMap.find_1 in Hx_v; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_int).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_int).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_int (z + z0)%Z); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_int).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_int).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_int (z - z0)%Z); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_int).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_int).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_int (z * z0)%Z); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_int).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_int).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_int (z / z0)%Z); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_int).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_int).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_bool (z <? z0)%Z); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    destruct H1 as [Ht_int | Ht_bool]; subst.
-    + assert (welltyped_val v1 t_int).
-      { eapply sem_expr_val_typed with (e := e1); eauto. }
-      assert (welltyped_val v2 t_int).
-      { eapply sem_expr_val_typed with (e := e2); eauto. }
-      inversion H1; inversion H2; subst; clear H1; clear H2.
-      exists (v_bool (z =? z0)%Z); simpl.
-      rewrite Hv1; rewrite Hv2; auto.
-    + assert (welltyped_val v1 t_bool).
-      { eapply sem_expr_val_typed with (e := e1); eauto. }
-      assert (welltyped_val v2 t_bool).
-      { eapply sem_expr_val_typed with (e := e2); eauto. }
-      inversion H1; inversion H2; subst; clear H1; clear H2.
-      exists (v_bool (Bool.eqb b b0)); simpl.
-      rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_bool).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_bool).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_bool (b && b0)%bool); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 t_bool).
-    { eapply sem_expr_val_typed with (e := e1); eauto. }
-    assert (welltyped_val v2 t_bool).
-    { eapply sem_expr_val_typed with (e := e2); eauto. }
-    inversion H1; inversion H2; subst; clear H1; clear H2.
-    exists (v_bool (b || b0)%bool); simpl.
-    rewrite Hv1; rewrite Hv2; auto.
-  - intros m Hmem.
-    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
-      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
-    assert (welltyped_val v1 (t_arr t)). {
-      eapply sem_expr_val_typed with (e := e1); eauto.
-    }
-    assert (welltyped_val v2 t_int). {
-      eapply sem_expr_val_typed with (e := e2); eauto.
-    }
-(*Defined.*)
-
 Lemma IZR_gt_0: forall {z}, (z > 0)%Z -> (IZR z > 0)%R.
 Proof.
   intros z Hzgt0.
@@ -474,8 +363,38 @@ Definition step_base_instr (m: memory) (c : base_instr)
                              (fun v => Munit (VarMap.add x (v_int v) m))
     | _ => distr0
     end
-      (* TODO: Fix this *)
-  | _ => distr0
+  | bi_index_assign x eidx erhs =>
+    match VarMap.find x m,
+          sem_expr m eidx,
+          sem_expr m erhs with
+    | Some (v_arr t vs), Some (v_int idx), Some v
+      => match val_arr_update vs idx v with
+        | Some vs' => Munit (VarMap.add x (v_arr t vs') m)
+        | None => distr0
+         end
+    | Some (v_bag t vs), Some (v_int idx), Some v
+      => match val_arr_update vs idx v with
+        | Some vs' => Munit (VarMap.add x (v_bag t vs') m)
+        | None => distr0
+        end
+    | _, _, _
+      => distr0
+    end
+  | bi_length_assign x rhs =>
+    match VarMap.find x m,
+          sem_expr m rhs with
+    | Some (v_arr t vs), Some (v_int len)
+      => match val_arr_update_length t vs len with
+         | Some vs' => Munit (VarMap.add x (v_arr t vs') m)
+         | None => distr0
+         end
+    | Some (v_bag t vs), Some (v_int len)
+      => match val_arr_update_length t vs len with
+         | Some vs' => Munit (VarMap.add x (v_bag t vs') m)
+         | None => distr0
+         end
+    | _, _ => distr0
+    end
   end.
 
 Fixpoint step_cmd (m: memory) (c: cmd)
@@ -502,24 +421,10 @@ Fixpoint step_cmd (m: memory) (c: cmd)
                   | (c1', m) => Munit ((c1' ;; c2)%cmd, m)
                   end
          )
-
   end.
 
 
 Ltac absurd := let H := fresh "contra" in intros H; inversion H; subst; clear H.
-Ltac destruct_sem_expr m rhs :=
-  match goal with
-  | [ H1 : welltyped_expr ?env rhs ?t,
-      H2 : welltyped_memory ?env m
-      |- _
-    ] => let H := fresh "H_sem_expr" in
-        let vrhs := fresh "v_" rhs in
-        let Hvrhs := fresh "H_" vrhs in
-        assert (H : exists v, sem_expr m rhs = Some v);
-        try (eapply sem_welltyped_expr; eauto);
-        try (destruct H as [vrhs Hvrhs])
-  | _ => fail "Cannot find welltyped conditions"
-  end.
 Ltac ty_val v :=
   match goal with
   | [
@@ -527,12 +432,33 @@ Ltac ty_val v :=
     H2 : sem_expr ?m ?expr = Some v
     |- _ ] =>
     let H := fresh "H_type_" v in
-    assert (H : welltyped_val v t);
-    try (apply sem_expr_val_typed
-           with (env := env) (m := m) (e := expr);
-         auto)
+    assert (H : welltyped_val v t) by
+    (apply sem_expr_val_typed
+       with (env := env) (m := m) (e := expr);
+     auto)
+  | [
+    H1: VarMap.MapsTo ?x v ?m,
+    H2: welltyped_memory ?env ?m,
+    H3: VarMap.MapsTo ?x ?t ?env
+    |- _ ] =>
+    let H := fresh "H_type_" v in
+    assert (H : welltyped_val v t) by
+        apply (welltyped_memory_val env m x v t H2 H3 H1)
   end.
 Ltac simpl_distr_monad := repeat (simpl; unfold star, unit).
+
+Lemma welltyped_distr0: forall env,
+    range (fun cm => welltyped env (fst cm)
+                     /\ welltyped_memory env (snd cm)) distr0.
+Proof.
+  intros env; unfold range.
+  intros f Hf.
+  simpl_distr_monad.
+  unfold Mdistr0.
+  reflexivity.
+Qed.
+
+Hint Resolve welltyped_distr0.
 
 (* Well typed commands produces distributions whose support are all welltyped *)
 Lemma step_welltyped_cmd_preservation : forall env m c,
@@ -549,8 +475,7 @@ Proof.
     rewrite <- Hf; auto.
   - intros m Hmem f Hf.
     simpl_distr_monad.
-    destruct_sem_expr m rhs.
-    rewrite H_v_rhs.
+    destruct (sem_expr m rhs) as [v_rhs|] eqn:H_v_rhs; auto.
     simpl_distr_monad.
     rewrite <- Hf; auto.
     split; auto.
@@ -559,8 +484,7 @@ Proof.
     apply welltyped_memory_add with (t := t); auto.
   - intros m Hmem f Hf.
     simpl_distr_monad.
-    destruct_sem_expr m center.
-    rewrite H_v_center.
+    destruct (sem_expr m center) as [v_center|] eqn:H_v_center; auto.
     ty_val v_center.
     inversion H_type_v_center; subst; clear H_type_v_center.
     simpl_distr_monad.
@@ -572,11 +496,92 @@ Proof.
     apply welltyped_memory_add with (t := t_int); auto.
     constructor.
   - intros m Hmem f Hf.
-Admitted.
-(*
     simpl_distr_monad.
-    destruct_sem_expr m e.
-    rewrite H_v_e.
+    destruct (VarMap.find x m) as [v_x|] eqn:H_x_v; auto.
+    apply VarMap.find_2 in H_x_v.
+    ty_val v_x.
+    inv H_type_v_x;
+      destruct (sem_expr m eidx) as [v_idx|] eqn:H_v_idx; auto;
+        ty_val v_idx;
+        inv H_type_v_idx;
+        destruct (sem_expr m erhs) as [v_rhs|] eqn:H_v_rhs; auto;
+          ty_val v_rhs.
+    + simpl; destruct z; auto.
+    + destruct (val_arr_update (v_cons v vs) z v_rhs) eqn:H_vs'; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := t_arr t); auto.
+      apply val_arr_update_welltyped with (vs := (v_cons v vs)) (idx := z) (v := v_rhs); auto.
+      constructor; auto.
+  - intros m Hmem f Hf.
+    simpl_distr_monad.
+    destruct (VarMap.find x m) as [v_x|] eqn:H_x_v; auto.
+    apply VarMap.find_2 in H_x_v.
+    ty_val v_x.
+    inv H_type_v_x;
+      destruct (sem_expr m eidx) as [v_idx|] eqn:H_v_idx; auto;
+        ty_val v_idx;
+        inv H_type_v_idx;
+        destruct (sem_expr m erhs) as [v_rhs|] eqn:H_v_rhs; auto;
+          ty_val v_rhs.
+    + simpl; destruct z; auto.
+    + destruct (val_arr_update (v_cons v vs) z v_rhs) eqn:H_vs'; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := t_bag t); auto.
+      apply val_bag_update_welltyped with (vs := (v_cons v vs)) (idx := z) (v := v_rhs); auto.
+      constructor; auto.
+  - intros m Hmem f Hf.
+    simpl_distr_monad.
+    destruct (VarMap.find x m) as [v_x|] eqn:H_v_x; auto.
+    apply VarMap.find_2 in H_v_x.
+    ty_val v_x.
+    inv H_type_v_x; auto;
+      destruct (sem_expr m erhs) as [v_rhs|] eqn:H_v_rhs; auto;
+        ty_val v_rhs;
+        inv H_type_v_rhs.
+    + destruct (val_arr_update_length t v_nil z) eqn:Harr; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := (t_arr t)); auto.
+      apply val_arr_update_length_welltyped with (vs := v_nil) (n := z); auto.
+      constructor.
+    + destruct (val_arr_update_length t (v_cons v vs) z) eqn:Harr; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := (t_arr t)); auto.
+      apply val_arr_update_length_welltyped with (vs := (v_cons v vs)) (n := z); auto.
+      constructor; auto.
+  - intros m Hmem f Hf.
+    simpl_distr_monad.
+    destruct (VarMap.find x m) as [v_x|] eqn:H_v_x; auto.
+    apply VarMap.find_2 in H_v_x.
+    ty_val v_x.
+    inv H_type_v_x; auto;
+      destruct (sem_expr m erhs) as [v_rhs|] eqn:H_v_rhs; auto;
+        ty_val v_rhs;
+        inv H_type_v_rhs.
+    + destruct (val_arr_update_length t v_nil z) eqn:Harr; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := (t_bag t)); auto.
+      apply val_bag_update_length_welltyped with (vs := v_nil) (n := z); auto.
+      constructor.
+    + destruct (val_arr_update_length t (v_cons v vs) z) eqn:Harr; auto.
+      simpl_distr_monad.
+      rewrite <- Hf; auto.
+      split; simpl; auto.
+      apply welltyped_memory_add with (t := (t_bag t)); auto.
+      apply val_bag_update_length_welltyped with (vs := (v_cons v vs)) (n := z); auto.
+      constructor; auto.
+  - intros m Hmem f Hf.
+    simpl_distr_monad.
+    destruct (sem_expr m e) as [v_e|] eqn:H_v_e; auto.
     ty_val v_e.
     inversion H_type_v_e; subst; clear H_type_v_e.
     destruct b;
@@ -584,8 +589,7 @@ Admitted.
       rewrite <- Hf; auto.
   - intros m Hmem f Hf.
     simpl_distr_monad.
-    destruct_sem_expr m e.
-    rewrite H_v_e.
+    destruct (sem_expr m e) as [v_e|] eqn:H_v_e; auto.
     ty_val v_e.
     inversion H_type_v_e; subst; clear H_type_v_e.
     destruct b;
@@ -606,7 +610,7 @@ Admitted.
         try (intros f Hf; simpl_distr_monad;
              rewrite <- Hf; try split; auto;
              simpl; auto).
-Qed.*)
+Qed.
 
 Fixpoint step_trans (m: memory) (c: cmd) (n: nat)
   : distr (cmd * memory) :=

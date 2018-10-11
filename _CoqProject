@@ -6,7 +6,7 @@ Semantics.v
 Syntax.v
 SyntaxExtension.v
 TypeSystem.v
-VariableDefinitions.v
+BaseDefinitions.v
 Lib.v
 SimpleTypeSystem.v
 IncExt.v

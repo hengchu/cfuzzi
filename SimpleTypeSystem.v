@@ -1,5 +1,5 @@
 Require Export Cfuzzi.Syntax.
-Require Export Cfuzzi.VariableDefinitions.
+Require Export Cfuzzi.BaseDefinitions.
 Require Import Coq.Bool.Bool.
 Require Import Coq.Lists.List.
 
@@ -123,6 +123,218 @@ Proof.
   - simpl in Hv; inversion Hv; subst; clear Hv.
     eapply val_bag_index_nat_welltyped; eauto.
   - simpl in Hv; inversion Hv.
+Qed.
+
+Lemma val_arr_update_nat_welltyped:
+  forall t vs idx v vs',
+    welltyped_val (v_arr t vs) (t_arr t)
+    -> welltyped_val v t
+    -> val_arr_update_nat vs idx v = Some vs'
+    -> welltyped_val (v_arr t vs') (t_arr t).
+Proof.
+  intros t vs idx v vs' Htyped.
+  remember (v_arr t vs) as varr.
+  remember (t_arr t) as tarr.
+  generalize dependent idx.
+  generalize dependent v.
+  generalize dependent vs.
+  generalize dependent t.
+  generalize dependent vs'.
+  induction Htyped;
+    try (solve [intros vs' t' Htarr vs Hvarr v idx; inversion Htarr; inversion Hvarr]).
+  - intros vs' t' Htarr vs Hvarr v idx.
+    intros Hvt Hupdate.
+    inversion Htarr; subst; clear Htarr.
+    inversion Hvarr; subst; clear Hvarr.
+    simpl in Hupdate.
+    destruct idx; inversion Hupdate.
+  - intros vs' t' Htarr vs2 Hvarr v2 idx.
+    intros Hvt Hupdate.
+    inversion Htarr; subst; clear Htarr.
+    inversion Hvarr; subst; clear Hvarr.
+    simpl in Hupdate.
+    destruct idx.
+    + inversion Hupdate; subst; clear Hupdate.
+      constructor; auto.
+    + destruct (val_arr_update_nat vs idx v) eqn:Htail; inversion Hupdate; subst; clear Hupdate.
+      constructor; auto.
+      apply IHHtyped2 with (vs0 := vs) (v := v) (idx := idx); auto.
+  - intros vs' t0 Htarr; inversion Htarr.
+Qed.
+
+Lemma val_arr_update_welltyped:
+  forall t vs idx v vs',
+    welltyped_val (v_arr t vs) (t_arr t)
+    -> welltyped_val v t
+    -> val_arr_update vs idx v = Some vs'
+    -> welltyped_val (v_arr t vs') (t_arr t).
+Proof.
+  intros t vs idx v vs' Htyped Hvt Harr.
+  destruct idx eqn:Hidx;
+    try (solve [eapply val_arr_update_nat_welltyped; eauto;
+                unfold val_arr_update in *;
+                destruct vs; auto; apply Harr]).
+  - destruct vs; simpl in Harr; inversion Harr.
+Qed.
+
+Lemma val_bag_update_nat_welltyped:
+  forall t vs idx v vs',
+    welltyped_val (v_bag t vs) (t_bag t)
+    -> welltyped_val v t
+    -> val_arr_update_nat vs idx v = Some vs'
+    -> welltyped_val (v_bag t vs') (t_bag t).
+Proof.
+  intros t vs idx v vs' Htyped.
+  remember (v_bag t vs) as vbag.
+  remember (t_bag t) as tbag.
+  generalize dependent idx.
+  generalize dependent v.
+  generalize dependent vs.
+  generalize dependent t.
+  generalize dependent vs'.
+  induction Htyped;
+    try (solve [intros vs' t' Htbag vs Hvbag v idx; inversion Htbag; inversion Hvbag]).
+  - intros vs' t0 Htbag; inversion Htbag.
+  - intros vs' t' Htbag vs Hvbag v idx.
+    intros Hvt Hupdate.
+    inversion Htbag; subst; clear Htbag.
+    inversion Hvbag; subst; clear Hvbag.
+    simpl in Hupdate.
+    destruct idx; inversion Hupdate.
+  - intros vs' t' Htbag vs2 Hvbag v2 idx.
+    intros Hvt Hupdate.
+    inversion Htbag; subst; clear Htbag.
+    inversion Hvbag; subst; clear Hvbag.
+    simpl in Hupdate.
+    destruct idx.
+    + inversion Hupdate; subst; clear Hupdate.
+      constructor; auto.
+    + destruct (val_arr_update_nat vs idx v) eqn:Htail; inversion Hupdate; subst; clear Hupdate.
+      constructor; auto.
+      apply IHHtyped2 with (vs0 := vs) (v := v) (idx := idx); auto.
+Qed.
+
+Lemma val_bag_update_welltyped:
+  forall t vs idx v vs',
+    welltyped_val (v_bag t vs) (t_bag t)
+    -> welltyped_val v t
+    -> val_arr_update vs idx v = Some vs'
+    -> welltyped_val (v_bag t vs') (t_bag t).
+Proof.
+  intros t vs idx v vs' Htyped Hvt Hbag.
+  destruct idx eqn:Hidx;
+    try (solve [eapply val_bag_update_nat_welltyped; eauto;
+                unfold val_arr_update in *;
+                destruct vs; auto; apply Hbag]).
+  - destruct vs; simpl in Hbag; inversion Hbag.
+Qed.
+
+Lemma val_arr_from_repeat_tau_default_welltyped:
+  forall t n,
+    welltyped_val (v_arr t (val_arr_from_list (repeat (tau_default_val t) n))) (t_arr t).
+Proof.
+  intros t n.
+  induction n.
+  - simpl. constructor.
+  - simpl. constructor; auto.
+Qed.
+
+Lemma val_bag_from_repeat_tau_default_welltyped:
+  forall t n,
+    welltyped_val (v_bag t (val_arr_from_list (repeat (tau_default_val t) n))) (t_bag t).
+Proof.
+  intros t n.
+  induction n.
+  - simpl. constructor.
+  - simpl. constructor; auto.
+Qed.
+
+Lemma val_arr_update_length_nat_welltyped:
+  forall t vs n,
+    welltyped_val (v_arr t vs) (t_arr t)
+    -> welltyped_val (v_arr t (val_arr_update_length_nat t vs n)) (t_arr t).
+Proof.
+  intros t vs n Htyped.
+  remember (v_arr t vs) as Hvarr.
+  remember (t_arr t) as Htarr.
+  generalize dependent vs.
+  generalize dependent t.
+  generalize dependent n.
+  induction Htyped;
+    try (solve [intros n' t' Htarr vs' Hvarr; inversion Htarr; inversion Hvarr]).
+  - intros n t' Htarr vs Hvarr.
+    inversion Htarr; subst; clear Htarr.
+    inversion Hvarr; subst; clear Hvarr.
+    destruct n.
+    + constructor; auto.
+    + simpl. constructor; auto.
+      apply val_arr_from_repeat_tau_default_welltyped.
+  - intros n t' Htarr vs' Hvarr.
+    inversion Htarr; subst; clear Htarr.
+    inversion Hvarr; subst; clear Hvarr.
+    destruct n.
+    + constructor; auto.
+    + simpl. constructor; auto.
+Qed.
+
+Lemma val_arr_update_length_welltyped:
+  forall t vs vs' n,
+    welltyped_val (v_arr t vs) (t_arr t)
+    -> val_arr_update_length t vs n = Some vs'
+    -> welltyped_val (v_arr t vs') (t_arr t).
+Proof.
+  intros t vs vs' n Htyped Hupdate.
+  destruct n eqn:Hn.
+  - simpl in Hupdate; inversion Hupdate; subst; clear Hupdate.
+    destruct vs; simpl; auto.
+    constructor.
+  - simpl in Hupdate; inversion Hupdate; subst; clear Hupdate.
+    apply val_arr_update_length_nat_welltyped; auto.
+  - simpl in Hupdate; inversion Hupdate.
+Qed.
+
+Lemma val_bag_update_length_nat_welltyped:
+  forall t vs n,
+    welltyped_val (v_bag t vs) (t_bag t)
+    -> welltyped_val (v_bag t (val_arr_update_length_nat t vs n)) (t_bag t).
+Proof.
+  intros t vs n Htyped.
+  remember (v_bag t vs) as Hvbag.
+  remember (t_bag t) as Htbag.
+  generalize dependent vs.
+  generalize dependent t.
+  generalize dependent n.
+  induction Htyped;
+    try (solve [intros n' t' Htbag vs' Hvbag; inversion Htbag; inversion Hvbag]).
+  - intros n t' Htbag vs Hvbag.
+    inversion Htbag; subst; clear Htbag.
+    inversion Hvbag; subst; clear Hvbag.
+    destruct n.
+    + constructor; auto.
+    + simpl. constructor; auto.
+      apply val_bag_from_repeat_tau_default_welltyped.
+  - intros n t' Htbag vs' Hvbag.
+    inversion Htbag; subst; clear Htbag.
+    inversion Hvbag; subst; clear Hvbag.
+    destruct n.
+    + constructor; auto.
+    + simpl. constructor; auto.
+Qed.
+
+Lemma val_bag_update_length_welltyped:
+  forall t vs vs' n,
+    welltyped_val (v_bag t vs) (t_bag t)
+    -> val_arr_update_length t vs n = Some vs'
+    -> welltyped_val (v_bag t vs') (t_bag t).
+Proof.
+  intros t vs vs' n Htyped Hupdate.
+  destruct n eqn:Hn.
+  - simpl in Hupdate; inversion Hupdate; subst; clear Hupdate.
+    destruct vs; simpl; auto.
+    constructor.
+  - simpl in Hupdate; inversion Hupdate; subst; clear Hupdate.
+    apply val_bag_update_length_nat_welltyped; auto.
+  - simpl in Hupdate; inversion Hupdate.
 Qed.
 
 Lemma welltyped_val_uniq : forall v t1 t2,
