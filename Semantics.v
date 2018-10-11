@@ -91,6 +91,8 @@ Definition mem_set := @VarMap.add val.
 Definition welltyped_memory (env : st_env) (m : memory) :=
   forall x t, VarMap.MapsTo x t env -> exists v, VarMap.MapsTo x v m /\ welltyped_val v t.
 
+Hint Unfold welltyped_memory.
+
 Lemma welltyped_memory_equiv_inv : forall env m1 m2,
     welltyped_memory env m1
     -> VarMap.Equal m1 m2
@@ -127,7 +129,20 @@ Proof.
     apply VarMap.add_2; auto.
 Qed.
 
-Hint Unfold welltyped_memory.
+Lemma welltyped_memory_val : forall env m x v (t : tau),
+    welltyped_memory env m
+    -> VarMap.MapsTo x t env
+    -> VarMap.MapsTo x v m
+    -> welltyped_val v t.
+Proof.
+  intros env m x v t.
+  intros Hmem Hxt Hxvm.
+  unfold welltyped_memory in Hmem.
+  destruct (Hmem x t) as [v2 [Hxv2 Hv2t]]; auto.
+  apply VarMap.find_1 in Hxvm; apply VarMap.find_1 in Hxv2.
+  rewrite Hxv2 in Hxvm; inv Hxvm; auto.
+Qed.
+
 Hint Resolve welltyped_memory_add.
 Hint Resolve welltyped_memory_equiv_inv.
 
@@ -202,88 +217,118 @@ Proof.
   induction H.
   - intros m v Hv.
     simpl in Hv.
-    inversion Hv; subst; clear Hv.
+    inv Hv.
     constructor.
   - intros m v Hv Hmem.
     simpl in Hv.
-    unfold welltyped_memory in Hmem.
-    destruct (Hmem x t H) as [xv [Hxv Ht_xv]].
-    apply VarMap.find_1 in Hxv.
-    rewrite Hxv in Hv; inversion Hv; subst; clear Hv.
-    auto.
+    apply VarMap.find_2 in Hv.
+    apply welltyped_memory_val with (env := env) (m := m) (x := x); auto.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H3; subst; clear H3.
+      inv Hv.
+    + destruct v0; destruct v1; inv H3.
       constructor; auto.
       constructor; auto.
-    + destruct v0; inversion H3; subst; clear H3.
+    + destruct v0; inv H3.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
-      inversion Hv; subst; clear Hv.
-    + destruct v0; destruct v1; inversion H2; subst; clear H2.
+      inv Hv.
+    + destruct v0; destruct v1; inv H2.
       constructor; auto.
-    + destruct v0; inversion H2; subst; clear H2.
+    + destruct v0; inv H2.
   - intros m v Hv Hmem.
     simpl in Hv.
     destruct (sem_expr m e1) eqn:He1;
       destruct (sem_expr m e2) eqn:He2;
       try (solve [inversion Hv|destruct v0; inversion Hv]).
-    destruct v0 eqn:Hv0; try (solve [inversion Hv]).
-    + Admitted.
-(*Qed.*)
+    destruct v0 eqn:Hv0;
+      destruct v1 eqn:Hv1;
+      try (solve [inversion Hv]); subst.
+    + apply val_arr_index_welltyped with (vs := v2) (idx := z) (t1 := t0); auto.
+      apply IHwelltyped_expr1 with (m := m); auto.
+    + assert (welltyped_val (v_bag t0 v2) (t_arr t)). {
+        apply IHwelltyped_expr1 with (m := m); auto.
+      }
+      inversion H1.
+  - intros m v Hv Hmem.
+    simpl in Hv.
+    destruct (sem_expr m e1) eqn:He1;
+      destruct (sem_expr m e2) eqn:He2;
+      try (solve [inversion Hv|destruct v0; inversion Hv]).
+    destruct v0 eqn:Hv0;
+      destruct v1 eqn:Hv1;
+      try (solve [inversion Hv]); subst.
+    + assert (welltyped_val (v_arr t0 v2) (t_bag t)). {
+        apply IHwelltyped_expr1 with (m := m); auto.
+      }
+      inv H1.
+    + apply val_bag_index_welltyped with (vs := v2) (idx := z) (t1 := t0); auto.
+      apply IHwelltyped_expr1 with (m := m); auto.
+  - intros m v Hv Hmem.
+    simpl in Hv.
+    destruct (sem_expr m e) as [ev|] eqn:He; try (solve [inversion Hv]).
+    destruct ev eqn:Hev; try (solve [inversion Hv]); inv Hv; subst.
+    + constructor.
+    + constructor.
+  - intros m v Hv Hmem.
+    simpl in Hv.
+    destruct (sem_expr m e) as [ev|] eqn:He; try (solve [inversion Hv]).
+    destruct ev eqn:Hev; try (solve [inversion Hv]); inv Hv; subst.
+    + constructor.
+    + constructor.
+Qed.
 
 Lemma sem_welltyped_expr : forall env m e t,
     welltyped_expr env e t
@@ -387,7 +432,15 @@ Proof.
     inversion H1; inversion H2; subst; clear H1; clear H2.
     exists (v_bool (b || b0)%bool); simpl.
     rewrite Hv1; rewrite Hv2; auto.
-  - Admitted.
+  - intros m Hmem.
+    destruct (IHwelltyped_expr1 m Hmem) as [v1 Hv1];
+      destruct (IHwelltyped_expr2 m Hmem) as [v2 Hv2].
+    assert (welltyped_val v1 (t_arr t)). {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int). {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
 (*Defined.*)
 
 Lemma IZR_gt_0: forall {z}, (z > 0)%Z -> (IZR z > 0)%R.

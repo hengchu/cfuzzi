@@ -1,7 +1,7 @@
 Require Export Coq.Classes.Morphisms.
 
-Require Export Coq.Reals.Reals.
-Require Export Fourier.
+Require Import Coq.Reals.Reals.
+Require Import Fourier.
 
 Require Export Random.Prelude.
 Require Export Random.Prog.
@@ -138,132 +138,6 @@ Qed.
 
 End Laplace.
 
-(*
-Module Laplace (E: Embedding).
-
-Import E.
-Module RP := Rules(E).
-Import RP.
-Import RP.PP.
-Import RP.PP.MP.
-Import RP.PP.MP.UP.
-
-(* The range of d is in P *)
-Definition range {A} (P : A -> Prop) (d : distr A) :=
-  forall f, (forall x, P x -> 0 == f x) -> 0 == mu d f.
-
-(* Lift a relation to a product distribution *)
-Section Lifting.
-  Variable A B : Type.
-
-  Variable P Q: A -> B -> Prop.
-
-  Hypothesis Pdec: forall x y, {P x y} + {~P x y}.
-
-  Definition prodP := fun xy => P (fst xy) (snd xy).
-
-  Definition caracF := fun xy => if Pdec (fst xy) (snd xy) then 1 else 0.
-
-  Definition Fimp2 := forall x y, P x y -> Q x y.
-End Lifting.
-
-Arguments prodP {_ _} _.
-
-Record lifting (A B : Type) (R : A -> B -> Prop) (d : distr (A * B))
-       (d1 : distr A) (d2 : distr B) : Type :=
-  {
-    lift_proj1 : forall f, mu d (fun x => f (fst x)) == mu d1 f;
-    lift_proj2 : forall f, mu d (fun x => f (snd x)) == mu d2 f;
-    lift_range : range (prodP R) d;
-  }.
-
-Section LaplaceDistr.
-
-  Local Close Scope nat_scope.
-  Local Close Scope U_scope.
-  Local Open Scope Z_scope.
-  Local Open Scope R_scope.
-
-  Variable eps: R.
-  Hypothesis eps_pos: (0 < eps)%R.
-
-  Definition f (a b:Z) : R := exp(-eps * Rabs(IZR a - IZR b)).
-  Definition delta (a a': Z) := exp(eps * Rabs(IZR a - IZR a')).
-
-  Lemma f_pos : forall a b, (0 <= f a b)%R.
-  Proof.
-    intros; apply Rlt_le; apply exp_pos.
-  Qed.
-
-  Lemma delta_sym : forall a a', delta a a' = delta a' a.
-  Proof.
-    intros; unfold delta.
-    rewrite Rabs_minus_sym; trivial.
-  Qed.
-
-  Lemma delta_pos : forall a a', (0 <= delta a a')%R.
-  Proof.
-    intros; apply Rlt_le; apply exp_pos.
-  Qed.
-
-  Lemma f_notnul : forall a, exists b, (0 < f a b)%R.
-  Proof.
-    intros; exists 0%Z; apply exp_pos.
-  Qed.
-
-  Lemma exp_monotonic : forall x y, (x <= y)%R -> (exp x <= exp y)%R.
-  Proof.
-    intros.
-    apply Rle_lt_or_eq_dec in H; destruct H.
-    apply Rlt_le; apply exp_increasing; trivial.
-    subst; apply Rle_refl.
-  Qed.
-
-  Lemma f_diff_bounded : forall a a' x, (f a x <= delta a a' * f a' x)%R.
-  Proof.
-    intros; unfold f, delta.
-    rewrite <-exp_plus.
-    replace (IZR a - IZR x) with (IZR a' - IZR x - (IZR a' - IZR a)) by field.
-    replace (eps * Rabs (IZR a - IZR a') + - eps * Rabs (IZR a' - IZR x)) with
-        (- (eps * (Rabs (IZR a' - IZR x) - Rabs (IZR a - IZR a')))) by field.
-    rewrite Ropp_mult_distr_l_reverse, exp_Ropp, exp_Ropp.
-    apply Rle_Rinv; [apply exp_pos | apply exp_pos | ].
-    apply exp_monotonic.
-    apply Rmult_le_compat_l; [fourier | ].
-    rewrite (Rabs_minus_sym (IZR a)).
-    apply Rabs_triang_inv.
-  Qed.
-
-  Definition Laplace : Z -> distr Z.
-  Admitted.
-
-  Lemma Laplace_ratio : forall a a' b,
-  iR (mu (Laplace a)  (fun k => if Zeq_bool k b then 1%U else 0)%U) <=
-  iR (mu (Laplace a') (fun k => if Zeq_bool k b then 1%U else 0)%U) *
-  (delta a a').
-  Admitted.
-
-  Lemma Laplace_lossless: forall a,
-      (mu (Laplace a) (fun k => 1%U) == 1)%U.
-  Admitted.
-
-End LaplaceDistr.
-
-
-Add Parametric Morphism A : (@mu A) with signature
-    (@eq_distr A) ==> (@feq A) ==> (Ueq) as mu_proper.
-  intros x y Heq f g Hfeq.
-  unfold feq in Hfeq.
-  apply Ueq_trans with (y := mu x g).
-  unfold eq_distr in Heq.
-  - apply mu_stable_eq; auto.
-  - apply Heq.
-Qed.
-
-
-End Laplace.
-*)
-
 Definition lift_option {A B} (f : A -> B) : option A -> option B :=
   fun oa => match oa with
             | Some a => Some (f a)
@@ -275,3 +149,5 @@ Definition lift_option2 {A B C} (f : A -> B -> C) : option A -> option B -> opti
             | Some a, Some b => Some (f a b)
             | _, _ => None
             end.
+
+Ltac inv H := inversion H; subst; clear H.
