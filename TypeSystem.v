@@ -403,33 +403,46 @@ Definition env_max (e1 e2 : env) :=
               e1
               (@BaseDefinitions.VarMap.empty Z).
 
-Fixpoint sens_expr (ctx : env) (e : expr) : option Z :=
+Fixpoint sens_expr (ctx: env) (tctx: st_env) (e: expr) : option Z :=
   match e with
   | e_lit _ => Some 0%Z
   | e_var x => env_get x ctx
-  | e_add e1 e2 => lift_option2 Z.add (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_minus e1 e2 => lift_option2 Z.add (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_mult (e_lit z) e2 => lift_option (Z.mul z) (sens_expr ctx e2)
-  | e_mult e1 (e_lit z) => lift_option (fun d => Z.mul d z) (sens_expr ctx e1)
-  | e_mult e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
+  | e_add e1 e2 => lift_option2 Z.add (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_minus e1 e2 => lift_option2 Z.add (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_mult (e_lit z) e2 => lift_option (Z.mul z) (sens_expr ctx tctx e2)
+  | e_mult e1 (e_lit z) => lift_option (fun d => Z.mul d z) (sens_expr ctx tctx e1)
+  | e_mult e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
   | e_div e1 (e_lit z) => lift_option
                            (fun d =>
                               (* Need to round up to account for remainders *)
                               if Z.rem d z =? 0
                               then Z.div d z
                               else (Z.div d z) + 1)%Z
-                           (sens_expr ctx e1)
-  | e_div e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_lt e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_eq e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_and e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
-  | e_or e1 e2 => comb_sens (sens_expr ctx e1) (sens_expr ctx e2)
-                           (* TODO: Fix this *)
-  | _ => None
+                           (sens_expr ctx tctx e1)
+  | e_div e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_lt e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_eq e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_and e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_or e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
+  | e_index e1 e2 =>
+    match welltyped_expr_compute tctx e1,
+          sens_expr ctx tctx e2
+    with
+    | Some (t_arr _), Some Z0 => sens_expr ctx tctx e1
+    | _, _ => None
+    end
+  | e_length e =>
+    match welltyped_expr_compute tctx e,
+          sens_expr ctx tctx e
+    with
+    | Some (t_arr _), Some s => Some 0%Z
+    | Some (t_bag _), Some s => Some s
+    | _, _ => None
+    end
   end.
 
 Lemma sens_expr_sound:
-  forall (m1 m2 : memory) (ctx : env) (tctx : st_env) (e : expr) t ed v1 v2,
+  forall (m1 m2 : memory) (ctx : env) (tctx : st_env) (e : expr) t ed,
     (* Everything is welltyped *)
     welltyped_expr tctx e t ->
     welltyped_memory tctx m1 ->
@@ -437,124 +450,19 @@ Lemma sens_expr_sound:
     (* Memory satisfies pre-condition *)
     denote_env ctx m1 m2 ->
     (* The expression has bounded sensitivity *)
-    sens_expr ctx e = Some ed ->
+    sens_expr ctx tctx e = Some ed ->
     (* Evaluating the expressions should yield values with distance less than
-       that computed by sens_expr
+       that computed by sens_expr, and the expressions should co-terminate.
      *)
-    sem_expr m1 e = Some v1 ->
-    sem_expr m2 e = Some v2 ->
-    exists dv, val_metric_f v1 v2 = Some dv /\ (dv <= ed)%Z.
+    exists v1 v2,
+      ((sem_expr m1 e = Some v1 <->
+        sem_expr m2 e = Some v2) /\
+       exists dv, val_metric_f v1 v2 = Some dv /\ (dv <= ed)%Z).
 Proof.
-  intros m1 m2 ctx tctx e tau ed v1 v2 Htau_e.
-  generalize dependent v2.
-  generalize dependent v1.
+  intros m1 m2 ctx tctx e t ed.
+  intros Het Hm1t Hm2t Hm1m2 Hsens.
   generalize dependent ed.
-  generalize dependent ctx.
-  generalize dependent m2.
-  generalize dependent m1.
-  induction Htau_e.
-  - simpl; intros; subst.
-    inversion H2; inversion H3; inversion H4; subst; clear H2; clear H3; clear H4.
-    exists 0%Z; simpl.
-    split; try omega.
-    rewrite Z.sub_diag; auto.
-  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hed Hv1 Hv2.
-    simpl in Hed, Hv1, Hv2.
-    apply VarMap.find_2 in Hv1.
-    apply VarMap.find_2 in Hv2.
-    unfold denote_env in Hctx.
-    unfold env_get in Hed.
-    apply VarMap.find_2 in Hed.
-    destruct (Hctx x ed Hed) as [v1' [v2' [d' [Hv1' [Hv2' [Hd' Hdd'] ] ] ] ] ].
-    apply VarMap.find_1 in Hv1.
-    apply VarMap.find_1 in Hv2.
-    apply VarMap.find_1 in Hv1'.
-    apply VarMap.find_1 in Hv2'.
-    rewrite Hv1 in Hv1'.
-    rewrite Hv2 in Hv2'.
-    inversion Hv1'; inversion Hv2'; subst; clear Hv1'; clear Hv2'.
-    exists d'; auto.
-  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hadd Hv1 Hv2.
-    simpl in Hadd, Hv1, Hv2.
-    destruct_sem_expr m1 e1; destruct_sem_expr m2 e1;
-      destruct_sem_expr m1 e2; destruct_sem_expr m2 e2.
-    rewrite H_v_e1 in Hv1; rewrite H_v_e0 in Hv2;
-      rewrite H_v_e2 in Hv1; rewrite H_v_e3 in Hv2.
-    ty_val v_e1; try (apply sem_expr_val_typed with (env := env0) (e := e1) (m := m1); auto).
-    ty_val v_e0; try (apply sem_expr_val_typed with (env := env0) (e := e1) (m := m2); auto).
-    ty_val v_e2; try (apply sem_expr_val_typed with (env := env0) (e := e2) (m := m1); auto).
-    ty_val v_e3; try (apply sem_expr_val_typed with (env := env0) (e := e2) (m := m2); auto).
-    inversion H_type_v_e1;
-      inversion H_type_v_e0;
-      inversion H_type_v_e2;
-      inversion H_type_v_e3;
-      subst;
-      clear H_type_v_e1;
-      clear H_type_v_e0;
-      clear H_type_v_e2;
-      clear H_type_v_e3.
-    inversion Hv1; inversion Hv2; subst; clear Hv1; clear Hv2.
-    destruct (sens_expr ctx e1) eqn:Hadd_1;
-      destruct (sens_expr ctx e2) eqn:Hadd_2;
-      inversion Hadd; subst; clear Hadd.
-    destruct (IHHtau_e1 m1 m2 ctx z3 z z0) as [d_add_1 [H_d_add_1 H_d_add_1_z3] ]; auto.
-    destruct (IHHtau_e2 m1 m2 ctx z4 z1 z2) as [d_add_2 [H_d_add_2 H_d_add_2_z4] ]; auto.
-    simpl. simpl in H_d_add_1, H_d_add_2.
-    inversion H_d_add_1; subst; clear H_d_add_1.
-    inversion H_d_add_2; subst; clear H_d_add_2.
-    exists (Z.abs (z + z1 - (z0 + z2)))%Z; split; try omega; auto.
-    assert (Z.abs (z + z1 - (z0 + z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z.
-    {
-      rewrite Z.sub_add_distr.
-      replace ((z + z1 - z0 - z2))%Z with ((z - z0) + (z1 - z2))%Z by omega.
-      apply Z.abs_triangle.
-    }
-    omega.
-  - intros m1 m2 ctx ed v1 v2 Hm1 Hm2 Hctx Hsub Hv1 Hv2.
-    simpl in Hv1, Hv2.
-    destruct_sem_expr m1 e1;
-      destruct_sem_expr m2 e1;
-      destruct_sem_expr m1 e2;
-      destruct_sem_expr m2 e2.
-    rewrite H_v_e1 in Hv1;
-      rewrite H_v_e0 in Hv2;
-      rewrite H_v_e2 in Hv1;
-      rewrite H_v_e3 in Hv2.
-    ty_val v_e1; try (apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1); auto).
-    ty_val v_e0; try (apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1); auto).
-    ty_val v_e2; try (apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2); auto).
-    ty_val v_e3; try (apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2); auto).
-    inversion H_type_v_e1;
-      inversion H_type_v_e0;
-      inversion H_type_v_e2;
-      inversion H_type_v_e3;
-      subst;
-      clear H_type_v_e1;
-      clear H_type_v_e0;
-      clear H_type_v_e2;
-      clear H_type_v_e3.
-    simpl in Hsub.
-    destruct (sens_expr ctx e1) eqn:H_sub1;
-      destruct (sens_expr ctx e2) eqn:H_sub2;
-      inversion Hsub; subst; clear Hsub.
-    destruct (IHHtau_e1 m1 m2 ctx z3 z z0) as [d_sub1 [H_d_sub1 H_d_sub1_ed] ]; auto.
-    destruct (IHHtau_e2 m1 m2 ctx z4 z1 z2) as [d_sub2 [H_d_sub2 H_d_sub2_ed] ]; auto.
-    inversion Hv1; inversion Hv2; subst; clear Hv1; clear Hv2.
-    simpl. exists (Z.abs (z - z1 - (z0 - z2))); split; auto.
-    simpl in H_d_sub1, H_d_sub2;
-      inversion H_d_sub1;
-      inversion H_d_sub2;
-      subst;
-      clear H_d_sub1; clear H_d_sub2.
-    assert (Z.abs (z - z1 - (z0 - z2)) <= Z.abs (z - z0) + Z.abs (z1 - z2))%Z. {
-      rewrite Z.sub_sub_distr.
-      replace (z - z1 - z0 + z2)%Z with ((z - z0) + (- (z1 - z2)) )%Z by omega.
-      replace (Z.abs (z1 - z2)) with (Z.abs (-(z1-z2)))%Z.
-      apply Z.abs_triangle.
-      apply Z.abs_opp.
-    }
-    omega.
-    (* The cases are easy but tedious... TODO: finish them *)
+  induction Het.
 Admitted.
 
 Lemma env_update_impl :

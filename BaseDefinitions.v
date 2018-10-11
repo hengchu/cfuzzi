@@ -254,3 +254,18 @@ Coercion str_to_var : string >-> var.
 
 Definition varmap_from_list {A: Type} (xs: list (var * A)%type) : VarMap.t A :=
   List.fold_right (fun xa m => VarMap.add (fst xa) (snd xa) m) (@VarMap.empty A) xs.
+
+Lemma VarMap_MapsTo_Uniq: forall {T} m x (v1 v2 : T),
+    VarMap.MapsTo x v1 m -> VarMap.MapsTo x v2 m
+    -> v1 = v2.
+Proof.
+  intros T m x v1 v2.
+  intros Hv1.
+  intros Hv2.
+  apply VarMap.find_1 in Hv1.
+  apply VarMap.find_1 in Hv2.
+  rewrite Hv1 in Hv2.
+  inversion Hv2; subst; auto.
+Qed.
+
+Hint Resolve VarMap_MapsTo_Uniq.
