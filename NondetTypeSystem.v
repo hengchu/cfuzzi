@@ -99,9 +99,9 @@ Definition assign_pat :=
   ("?x" <- "?e")%pat.
 Definition assign_func : typing_rule_func :=
   fun uenv senv stenv =>
-    (x_ur <-- VariableDefinitions.VarMap.find "?x" uenv ;;;
+    (x_ur <-- BaseDefinitions.VarMap.find "?x" uenv ;;;
      v <-- try_get_variable x_ur ;;;
-     e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+     e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      rhs <-- try_get_expr e_ur ;;;
      let srhs := sens_expr senv rhs in
      Some [env_update v senv srhs]
@@ -122,11 +122,11 @@ Definition cond_sens_pat :=
    end)%pat.
 Definition cond_sens_func : typing_rule_func :=
   (fun uenv senv stenv =>
-    e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+    e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
     e <-- try_get_expr e_ur ;;;
-    c1_ur <-- VariableDefinitions.VarMap.find "?c1" uenv ;;;
+    c1_ur <-- BaseDefinitions.VarMap.find "?c1" uenv ;;;
     c1 <-- try_get_cmd c1_ur ;;;
-    c2_ur <-- VariableDefinitions.VarMap.find "?c2" uenv ;;;
+    c2_ur <-- BaseDefinitions.VarMap.find "?c2" uenv ;;;
     c2 <-- try_get_cmd c2_ur ;;;
     let modified_vars := (mvs c1 ++ mvs c2)%list in
     if_sensitive
@@ -141,9 +141,9 @@ Definition while_sens_pat :=
    end)%pat.
 Definition while_sens_func : typing_rule_func :=
   (fun uenv senv stenv =>
-     e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+     e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
-     c_ur <-- VariableDefinitions.VarMap.find "?c" uenv ;;;
+     c_ur <-- BaseDefinitions.VarMap.find "?c" uenv ;;;
      c <-- try_get_cmd c_ur ;;;
      let modified_vars := mvs c in
      if_sensitive
@@ -160,15 +160,15 @@ Definition if_nonsens_pat :=
 Definition if_nonsens_func
            (recur: env -> st_env -> cmd -> option (M_nondet env)): typing_rule_func :=
   fun uenv senv stenv =>
-    (e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+    (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
      s_e <-- sens_expr senv e ;;;
      if (s_e >? 0)%Z
      then None
      else
-       c1_ur <-- VariableDefinitions.VarMap.find "?c1" uenv ;;;
+       c1_ur <-- BaseDefinitions.VarMap.find "?c1" uenv ;;;
        c1 <-- try_get_cmd c1_ur ;;;
-       c2_ur <-- VariableDefinitions.VarMap.find "?c2" uenv ;;;
+       c2_ur <-- BaseDefinitions.VarMap.find "?c2" uenv ;;;
        c2 <-- try_get_cmd c2_ur ;;;
        many_senv1 <-- recur senv stenv c1 ;;;
        many_senv2 <-- recur senv stenv c2 ;;;
@@ -187,17 +187,17 @@ Definition while_nonsens_pat :=
    end)%pat.
 Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env)): typing_rule_func :=
   fun uenv senv stenv =>
-    (e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+    (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
      s_e <-- sens_expr senv e ;;;
      if (s_e >? 0)%Z
      then None
-     else c_ur <-- VariableDefinitions.VarMap.find "?c" uenv ;;;
+     else c_ur <-- BaseDefinitions.VarMap.find "?c" uenv ;;;
         c <-- try_get_cmd c_ur ;;;
         many_senv' <-- recur senv c ;;;
         Some (
           senv' <-- many_senv' ;;;
-          if VariableDefinitions.VarMap.equal Z.eqb senv senv'
+          if BaseDefinitions.VarMap.equal Z.eqb senv senv'
           then M_nondet_return senv'
           else []
         )%M_nondet
@@ -211,17 +211,17 @@ Definition cond_inc_pat :=
 Definition cond_inc_func : typing_rule_func :=
   fun uenv senv stenv =>
     (
-      e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+      e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
       e <-- try_get_expr e_ur ;;;
       if_sensitive senv e
-        (x_ur <-- VariableDefinitions.VarMap.find "?x" uenv ;;;
+        (x_ur <-- BaseDefinitions.VarMap.find "?x" uenv ;;;
          x <-- try_get_variable x_ur ;;;
-         k1_ur <-- VariableDefinitions.VarMap.find "?k1" uenv ;;;
+         k1_ur <-- BaseDefinitions.VarMap.find "?k1" uenv ;;;
          k1 <-- try_get_Z k1_ur ;;;
-         k2_ur <-- VariableDefinitions.VarMap.find "?k2" uenv ;;;
+         k2_ur <-- BaseDefinitions.VarMap.find "?k2" uenv ;;;
          k2 <-- try_get_Z k2_ur ;;;
          let diff := Z.abs (k1 - k2)%Z in
-         match VariableDefinitions.VarMap.find x senv with
+         match BaseDefinitions.VarMap.find x senv with
          | None => Some [senv]
          | Some s => Some [env_update x senv (Some (s + diff)%Z)]
          end)%option
@@ -239,24 +239,24 @@ Definition simple_arr_map_pat :=
 
 Definition simple_arr_map_func: typing_rule_func :=
   fun uenv senv stenv =>
-    (idx_ur <-- VariableDefinitions.VarMap.find "?idx" uenv ;;;
+    (idx_ur <-- BaseDefinitions.VarMap.find "?idx" uenv ;;;
      idx <-- try_get_variable idx_ur ;;;
-     s_idx <-- VariableDefinitions.VarMap.find idx senv ;;;
+     s_idx <-- BaseDefinitions.VarMap.find idx senv ;;;
      if (s_idx >? 0)%Z
      then None
      else (
-         t_ur <-- VariableDefinitions.VarMap.find "?t" uenv ;;;
+         t_ur <-- BaseDefinitions.VarMap.find "?t" uenv ;;;
          t <-- try_get_variable t_ur ;;;
-         e_ur <-- VariableDefinitions.VarMap.find "?e" uenv ;;;
+         e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
          e <-- try_get_expr e_ur ;;;
          match List.remove var_eqdec t (fvs e) with
          | _ :: _ => None
          | [] => (
-             arr_in_ur <-- VariableDefinitions.VarMap.find "?arr_in" uenv ;;;
+             arr_in_ur <-- BaseDefinitions.VarMap.find "?arr_in" uenv ;;;
              arr_in <-- try_get_variable arr_in_ur ;;;
-             arr_out_ur <-- VariableDefinitions.VarMap.find "?arr_out" uenv ;;;
+             arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
              arr_out <-- try_get_variable arr_out_ur ;;;
-             let senv' := env_update t senv (VariableDefinitions.VarMap.find arr_in senv) in
+             let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
              let s_e := sens_expr senv' e in
              Some [env_update arr_out senv' s_e]
            )%option

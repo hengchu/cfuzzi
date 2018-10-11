@@ -1,4 +1,4 @@
-Require Export Cfuzzi.VariableDefinitions.
+Require Export Cfuzzi.BaseDefinitions.
 Require Export Cfuzzi.Logic.
 Require Export Cfuzzi.Semantics.
 
@@ -184,18 +184,6 @@ Section Metrics.
 
   Definition val_bag_metric := bag_metric val_eqdec.
 
-  Fixpoint val_arr_to_list (vs : val_arr) : list val :=
-    match vs with
-    | v_nil => []
-    | v_cons v vs => v :: val_arr_to_list vs
-    end.
-
-  Fixpoint val_arr_from_list (vs : list val) : val_arr :=
-    match vs with
-    | [] => v_nil
-    | v :: vs => v_cons v (val_arr_from_list vs)
-    end.
-
   Fixpoint val_metric_f (v1 v2 : val) {struct v1} : option Z :=
     match v1, v2 with
     | v_int z1, v_int z2 => Z_metric z1 z2
@@ -369,10 +357,10 @@ Module TS
 Module APRHLImpl := LOGIC.
 Import APRHLImpl SEMImpl LAPImpl CARImpl RP PP MP UP EImpl.
 
-Definition env := VariableDefinitions.VarMap.t Z.
-Definition env_get (x : var) (e : env) := VariableDefinitions.VarMap.find x e.
-Definition env_set (x : var) (e : env) (d : Z) := VariableDefinitions.VarMap.add x d e.
-Definition env_del (x : var) (e : env) := VariableDefinitions.VarMap.remove x e.
+Definition env := BaseDefinitions.VarMap.t Z.
+Definition env_get (x : var) (e : env) := BaseDefinitions.VarMap.find x e.
+Definition env_set (x : var) (e : env) (d : Z) := BaseDefinitions.VarMap.add x d e.
+Definition env_del (x : var) (e : env) := BaseDefinitions.VarMap.remove x e.
 Definition env_update (x : var) (e : env) (od : option Z) :=
   match od with
   | Some d => env_set x e d
@@ -381,13 +369,13 @@ Definition env_update (x : var) (e : env) (od : option Z) :=
 Definition env_from_list (xs: list (var * Z)) :=
   List.fold_right
     (fun x_s senv => env_set (fst x_s) senv (snd x_s))
-    (@VariableDefinitions.VarMap.empty Z)
+    (@BaseDefinitions.VarMap.empty Z)
     xs.
 
 Definition denote_env (e : env) : memory_relation :=
-  fun m1 m2 => forall x d, VariableDefinitions.VarMap.MapsTo x d e
-                   -> exists v1 v2 d', VariableDefinitions.VarMap.MapsTo x v1 m1 /\
-                                 VariableDefinitions.VarMap.MapsTo x v2 m2 /\
+  fun m1 m2 => forall x d, BaseDefinitions.VarMap.MapsTo x d e
+                   -> exists v1 v2 d', BaseDefinitions.VarMap.MapsTo x v1 m1 /\
+                                 BaseDefinitions.VarMap.MapsTo x v2 m2 /\
                                  val_metric v1 v2 = Some d' /\ (d' <= d)%Z.
 
 Definition comb_sens (s1 s2 : option Z) :=
@@ -408,12 +396,12 @@ Definition max_sens (s1 s2 : option Z) :=
 
 Definition env_max (e1 e2 : env) :=
   VarMap.fold (fun x s1 acc =>
-                 match VariableDefinitions.VarMap.find x e2 with
+                 match BaseDefinitions.VarMap.find x e2 with
                  | None => env_update x acc None
                  | Some s2 => env_update x acc (Some (Z.max s1 s2))
                  end)
               e1
-              (@VariableDefinitions.VarMap.empty Z).
+              (@BaseDefinitions.VarMap.empty Z).
 
 Fixpoint sens_expr (ctx : env) (e : expr) : option Z :=
   match e with

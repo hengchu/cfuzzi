@@ -1,5 +1,6 @@
 Require Export Cfuzzi.Semantics.
 Require Export Carac.
+Require Import Coq.Reals.Reals.
 
 Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
   Module SEMImpl := Semantics.Make(E)(LAP).
