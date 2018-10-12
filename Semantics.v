@@ -79,6 +79,7 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
 
   Definition lossless (c : cmd) :=
     forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.
+
 End SEM.
 
 Module Make (E : Embedding) (LAP : Laplace(E)) <: SEM(E)(LAP)

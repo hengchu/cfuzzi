@@ -441,6 +441,184 @@ Fixpoint sens_expr (ctx: env) (tctx: st_env) (e: expr) : option Z :=
     end
   end.
 
+Lemma typed_expr_coterm:
+  forall (m1 m2: memory) (ctx: env) (tctx: st_env) (e: expr) t ed,
+    welltyped_expr tctx e t ->
+    welltyped_memory tctx m1 ->
+    welltyped_memory tctx m2 ->
+    denote_env ctx m1 m2 ->
+    sens_expr ctx tctx e = Some ed ->
+    (exists v1, sem_expr m1 e = Some v1) <-> (exists v2, sem_expr m2 e = Some v2).
+Proof.
+  intros m1 m2 ctx tctx e t ed Het Hm1t Hm2t Hm1m2 Hed.
+  generalize dependent ed.
+  induction Het.
+  - intros ed Hed.
+    simpl; split;
+      intros [v Hv]; inv Hv; exists z; auto.
+  - intros ed Hed.
+    simpl. unfold denote_env in Hm1m2.
+    simpl in Hed.
+    unfold env_get in Hed.
+    apply VarMap.find_2 in Hed.
+    destruct (Hm1m2 x ed) as [v1 [v2 [d12 [Hv1 [Hv2 [Hv1v2 Hd] ] ] ] ] ]; auto.
+    split.
+    + exists v2; apply VarMap.find_1; auto.
+    + exists v1; apply VarMap.find_1; auto.
+  - (* Addition *)
+    intros ed Hed.
+    simpl in Hed.
+    unfold lift_option2 in Hed.
+    destruct (sens_expr ctx env0 e1) eqn:He1;
+      destruct (sens_expr ctx env0 e2) eqn:He2;
+      try (solve [inv Hed] ).
+    destruct (IHHet1 Hm1t Hm2t z) as [He1_LR He1_RL]; auto.
+    destruct (IHHet2 Hm1t Hm2t z0) as [He2_LR He2_RL]; auto.
+    split.
+    + intros HL. destruct HL as [sum1 Hsum1].
+      simpl in Hsum1.
+      destruct (sem_expr m1 e1) eqn:Hm1e1; auto;
+        destruct (sem_expr m1 e2) eqn:Hm1e2; auto;
+          try (solve [inv Hsum1] ).
+      assert (Hv_int: welltyped_val v t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1) (v := v) (t := t_int); auto. }
+      assert (Hv0_int: welltyped_val v0 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v0) (t := t_int); auto. }
+      inv Hv_int; inv Hv0_int.
+      destruct He1_LR as [v21 Hm2e1]; auto.
+      { exists z1; auto. }
+      destruct He2_LR as [v22 Hm2e2]; auto.
+      { exists z2; auto. }
+      assert (Hv21_int: welltyped_val v21 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1) (v := v21) (t := t_int); auto. }
+      assert (Hv22_int: welltyped_val v22 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v22) (t := t_int); auto. }
+      inv Hv21_int; inv Hv22_int.
+      exists (z3 + z4)%Z; simpl.
+      rewrite Hm2e1; rewrite Hm2e2; auto.
+      destruct v; inv Hsum1.
+    + intros HR. destruct HR as [sum2 Hsum2].
+      simpl in Hsum2.
+      destruct (sem_expr m2 e1) eqn:Hm2e1; auto;
+        destruct (sem_expr m2 e2) eqn:Hm2e2; auto;
+          try (solve [inv Hsum2] ).
+      assert (Hv_int: welltyped_val v t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1) (v := v) (t := t_int); auto. }
+      assert (Hv0_int: welltyped_val v0 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v0) (t := t_int); auto. }
+      inv Hv_int; inv Hv0_int.
+      destruct He1_RL as [v11 Hm1e1]; auto.
+      { exists z1; auto. }
+      destruct He2_RL as [v12 Hm1e2]; auto.
+      { exists z2; auto. }
+      assert (Hv11_int: welltyped_val v11 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1) (v := v11) (t := t_int); auto. }
+      assert (Hv12_int: welltyped_val v12 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v12) (t := t_int); auto. }
+      inv Hv11_int; inv Hv12_int.
+      exists (z3 + z4)%Z; simpl.
+      rewrite Hm1e1; rewrite Hm1e2; auto.
+      destruct v; inv Hsum2.
+  - (* Subtraction *)
+    intros ed Hed.
+    simpl in Hed.
+    unfold lift_option2 in Hed.
+    destruct (sens_expr ctx env0 e1) eqn:He1;
+      destruct (sens_expr ctx env0 e2) eqn:He2;
+      try (solve [inv Hed] ).
+    destruct (IHHet1 Hm1t Hm2t z) as [He1_LR He1_RL]; auto.
+    destruct (IHHet2 Hm1t Hm2t z0) as [He2_LR He2_RL]; auto.
+    split.
+    + intros HL. destruct HL as [sum1 Hsum1].
+      simpl in Hsum1.
+      destruct (sem_expr m1 e1) eqn:Hm1e1; auto;
+        destruct (sem_expr m1 e2) eqn:Hm1e2; auto;
+          try (solve [inv Hsum1] ).
+      assert (Hv_int: welltyped_val v t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1) (v := v) (t := t_int); auto. }
+      assert (Hv0_int: welltyped_val v0 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v0) (t := t_int); auto. }
+      inv Hv_int; inv Hv0_int.
+      destruct He1_LR as [v21 Hm2e1]; auto.
+      { exists z1; auto. }
+      destruct He2_LR as [v22 Hm2e2]; auto.
+      { exists z2; auto. }
+      assert (Hv21_int: welltyped_val v21 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1) (v := v21) (t := t_int); auto. }
+      assert (Hv22_int: welltyped_val v22 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v22) (t := t_int); auto. }
+      inv Hv21_int; inv Hv22_int.
+      exists (z3 - z4)%Z; simpl.
+      rewrite Hm2e1; rewrite Hm2e2; auto.
+      destruct v; inv Hsum1.
+    + intros HR. destruct HR as [sum2 Hsum2].
+      simpl in Hsum2.
+      destruct (sem_expr m2 e1) eqn:Hm2e1; auto;
+        destruct (sem_expr m2 e2) eqn:Hm2e2; auto;
+          try (solve [inv Hsum2] ).
+      assert (Hv_int: welltyped_val v t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e1) (v := v) (t := t_int); auto. }
+      assert (Hv0_int: welltyped_val v0 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v0) (t := t_int); auto. }
+      inv Hv_int; inv Hv0_int.
+      destruct He1_RL as [v11 Hm1e1]; auto.
+      { exists z1; auto. }
+      destruct He2_RL as [v12 Hm1e2]; auto.
+      { exists z2; auto. }
+      assert (Hv11_int: welltyped_val v11 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e1) (v := v11) (t := t_int); auto. }
+      assert (Hv12_int: welltyped_val v12 t_int).
+      { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v12) (t := t_int); auto. }
+      inv Hv11_int; inv Hv12_int.
+      exists (z3 - z4)%Z; simpl.
+      rewrite Hm1e1; rewrite Hm1e2; auto.
+      destruct v; inv Hsum2.
+  - (* Multiplication *)
+    intros ed Hed.
+    simpl in Hed.
+    unfold lift_option2 in Hed.
+    destruct (sens_expr ctx env0 e1) eqn:Hse1;
+      destruct (sens_expr ctx env0 e2) eqn:Hse2;
+      try (solve [destruct e1; destruct e2; inv Hed] ).
+    + unfold comb_sens in Hed.
+      destruct (expr_eqdec e1 (e_lit z)).
+      * subst. inv Hed.
+        destruct (IHHet2 Hm1t Hm2t z0) as [He2_LR He2_RL]; auto.
+        {
+          split.
+          - intros [prod1 Hprod1]. simpl in Hprod1.
+            destruct (sem_expr m1 e2) as [v12|] eqn:Hm1e2;
+              try (solve [inv Hprod1] ).
+            assert (Hv12_int: welltyped_val v12 t_int).
+            { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v12) (t := t_int)
+              ; auto. }
+            inv Hv12_int; inv Hprod1.
+            destruct He2_LR as [v22 Hv22].
+            { exists z1; auto. }
+            assert (Hv22_int: welltyped_val v22 t_int).
+            { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v22) (t := t_int)
+              ; auto. }
+            inv Hv22_int.
+            exists (z * z2)%Z; auto.
+            simpl; rewrite Hv22; auto.
+          - intros [prod2 Hprod2]. simpl in Hprod2.
+            destruct (sem_expr m2 e2) as [v22|] eqn:Hm1e2;
+              try (solve [inv Hprod2] ).
+            assert (Hv22_int: welltyped_val v22 t_int).
+            { apply sem_expr_val_typed with (env := env0) (m := m2) (e := e2) (v := v22) (t := t_int)
+              ; auto. }
+            inv Hv22_int; inv Hprod2.
+            destruct He2_RL as [v12 Hv12].
+            { exists z1; auto. }
+            assert (Hv12_int: welltyped_val v12 t_int).
+            { apply sem_expr_val_typed with (env := env0) (m := m1) (e := e2) (v := v12) (t := t_int)
+              ; auto. }
+            inv Hv12_int.
+            exists (z * z2)%Z; auto.
+            simpl; rewrite Hv12; auto.
+        }
+      *
+
 Lemma sens_expr_sound:
   forall (m1 m2 : memory) (ctx : env) (tctx : st_env) (e : expr) t ed,
     (* Everything is welltyped *)
@@ -497,5 +675,6 @@ Lemma assign_sound :
     sens_expr ctx e = Some d ->
     ((x <- e) ~_(0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
 Admitted.
+    +
 
 End TS.
