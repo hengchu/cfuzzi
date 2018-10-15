@@ -1,14 +1,14 @@
-Require Export Coq.Classes.Morphisms.
+Require Import Coq.Classes.Morphisms.
 
 Require Import Coq.Reals.Reals.
 Require Import Fourier.
 
-Require Export Random.Prelude.
-Require Export Random.Prog.
-Require Export Random.Ubase.
-Require Export Random.Carac.
+Require Import Random.Prelude.
+Require Import Random.Prog.
+Require Import Random.Ubase.
+Require Import Random.Carac.
 
-Require Export Program.
+Require Import Program.
 
 Module Type Embedding.
 Include Universe.

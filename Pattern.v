@@ -1,4 +1,4 @@
-Require Export Cfuzzi.Syntax.
+Require Import Cfuzzi.Syntax.
 
 Definition uni_var := string.
 
@@ -84,16 +84,16 @@ Definition var_pat := atom_pat var.
 Definition Z_pat := atom_pat Z.
 Definition positive_pat := atom_pat positive.
 
-Definition uni_env := VarMap.t uni_res.
+Definition uni_env := BaseDefinitions.VarMap.t uni_res.
 
 (* Produces either a list of disagreeing unification variables, or a union of
    the two environments *)
 Definition uni_env_union' (e1 e2 : uni_env) : ((list uni_var) * uni_env) :=
-  VarMap.fold (fun uv ur acc =>
+  BaseDefinitions.VarMap.fold (fun uv ur acc =>
                  match acc with
                  | (bad_uvs, union) =>
-                   match VarMap.find uv union with
-                   | None => (bad_uvs, VarMap.add uv ur union)
+                   match BaseDefinitions.VarMap.find uv union with
+                   | None => (bad_uvs, BaseDefinitions.VarMap.add uv ur union)
                    | Some ur2 => if uni_res_eqdec ur ur2
                                 then acc
                                 else (uv :: bad_uvs, union)
@@ -472,7 +472,167 @@ Module TestNotation.
   Eval compute in match_cmd_prefix complex_pat2 complex_prog2 empty_uni_env.
 End TestNotation.
 
-(* TODO: setup some kind of correctness lemma that says if we substitute the
-   pattern with the resulting unification environment, then we get the matched
-   syntax tree
-*)
+Inductive Z_pat_matches: uni_env -> Z_pat -> Z -> Prop :=
+| Z_pat_same: forall uenv z,
+    Z_pat_matches uenv (zpat z) z
+| Z_pat_var: forall uenv ux z,
+    VarMap.MapsTo ux (uni_Z z) uenv
+    -> Z_pat_matches uenv (zpat_wildcard ux) z.
+
+Lemma match_Z_correct: forall zp z uenv1 uenv2,
+    match_Z zp z uenv1 = inr uenv2
+    -> Z_pat_matches uenv2 zp z.
+Proof.
+Admitted.
+
+Inductive positive_pat_matches: uni_env -> positive_pat -> positive -> Prop :=
+| positive_pat_same: forall uenv p,
+    positive_pat_matches uenv (ppat p) p
+| positive_pat_var: forall uenv ux p,
+    VarMap.MapsTo ux (uni_positive p) uenv
+    -> positive_pat_matches uenv (ppat_wildcard ux) p.
+
+Lemma match_pos_correct: forall pp p uenv1 uenv2,
+    match_pos pp p uenv1 = inr uenv2
+    -> positive_pat_matches uenv2 pp p.
+Proof.
+Admitted.
+
+Inductive var_pat_matches: uni_env -> var_pat -> var -> Prop :=
+| var_pat_same: forall uenv x,
+    var_pat_matches uenv (vpat x) x
+| var_pat_var: forall uenv ux x,
+    VarMap.MapsTo ux (uni_variable x) uenv
+    -> var_pat_matches uenv (vpat_wildcard ux) x.
+
+Lemma match_var_correct: forall vp v uenv1 uenv2,
+    match_var vp v uenv1 = inr uenv2
+    -> var_pat_matches uenv2 vp v.
+Proof.
+Admitted.
+
+Inductive expr_pat_matches : uni_env -> expr_pat -> expr -> Prop :=
+| expr_wildcard_matches: forall ux uenv e,
+    VarMap.MapsTo ux (uni_expr e) uenv
+    -> expr_pat_matches uenv (epat_wildcard ux) e
+| epat_lit_matches: forall uenv zp z,
+    Z_pat_matches uenv zp z
+    -> expr_pat_matches uenv (epat_lit zp) (e_lit z)
+| epat_var_matches: forall uenv vp v,
+    var_pat_matches uenv vp v
+    -> expr_pat_matches uenv (epat_var vp) (e_var v)
+| epat_add_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_add epl epr) (e_add el er)
+| epat_minus_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_minus epl epr) (e_minus el er)
+| epat_mult_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_mult epl epr) (e_mult el er)
+| epat_div_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_div epl epr) (e_div el er)
+| epat_lt_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_lt epl epr) (e_lt el er)
+| epat_eq_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_eq epl epr) (e_eq el er)
+| epat_and_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_and epl epr) (e_and el er)
+| epat_or_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_or epl epr) (e_or el er)
+| epat_index_matches: forall uenv epl epr el er,
+    expr_pat_matches uenv epl el
+    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv (epat_index epl epr) (e_index el er)
+| epat_length_matches: forall uenv ep e,
+    expr_pat_matches uenv ep e
+    -> expr_pat_matches uenv (epat_length ep) (e_length e).
+
+Lemma match_expr_correct: forall ep e uenv1 uenv2,
+    match_expr ep e uenv1 = inr uenv2
+    -> expr_pat_matches uenv2 ep e.
+Proof.
+Admitted.
+
+Inductive bi_pat_matches: uni_env -> bi_pat -> base_instr -> Prop :=
+| bipat_wildcard_matches: forall uenv ux bi,
+    VarMap.MapsTo ux (uni_base_instr bi) uenv
+    -> bi_pat_matches uenv (bipat_wildcard ux) bi
+| bipat_laplace_matches: forall uenv vp v pp p ep e,
+    var_pat_matches uenv vp v
+    -> positive_pat_matches uenv pp p
+    -> expr_pat_matches uenv ep e
+    -> bi_pat_matches uenv (bipat_laplace vp pp ep) (bi_laplace v p e)
+| bipat_assign_matches: forall uenv vp v ep e,
+    var_pat_matches uenv vp v
+    -> expr_pat_matches uenv ep e
+    -> bi_pat_matches uenv (bipat_assign vp ep) (bi_assign v e)
+| bipat_index_assign_matches: forall uenv vp v ep1 e1 ep2 e2,
+    var_pat_matches uenv vp v
+    -> expr_pat_matches uenv ep1 e1
+    -> expr_pat_matches uenv ep2 e2
+    -> bi_pat_matches uenv (bipat_index_assign vp ep1 ep2) (bi_index_assign v e1 e2)
+| bipat_length_matches: forall uenv vp v ep e,
+    var_pat_matches uenv vp v
+    -> expr_pat_matches uenv ep e
+    -> bi_pat_matches uenv (bipat_length_assign vp ep) (bi_length_assign v e).
+
+Lemma match_bi_correct: forall bip bi uenv1 uenv2,
+    match_bi bip bi uenv1 = inr uenv2
+    -> bi_pat_matches uenv2 bip bi.
+Proof.
+Admitted.
+
+Inductive cmd_pat_matches: uni_env -> cmd_pat -> cmd -> Prop :=
+| cpat_wildcard_matches: forall uenv ux c,
+    VarMap.MapsTo ux (uni_cmd c) uenv
+    -> cmd_pat_matches uenv (cpat_wildcard ux) c
+| cpat_skip_matches: forall uenv,
+    cmd_pat_matches uenv cpat_skip i_skip
+| cpat_base_instr_matches: forall uenv bip bi,
+    bi_pat_matches uenv bip bi
+    -> cmd_pat_matches uenv (cpat_base_instr bip) (i_base_instr bi)
+| cpat_cond_matches: forall uenv ep e cp1 c1 cp2 c2,
+    expr_pat_matches uenv ep e
+    -> cmd_pat_matches uenv cp1 c1
+    -> cmd_pat_matches uenv cp2 c2
+    -> cmd_pat_matches uenv (cpat_cond ep cp1 cp2) (i_cond e c1 c2)
+| cpat_while_matches: forall uenv ep e cp c,
+    expr_pat_matches uenv ep e
+    -> cmd_pat_matches uenv cp c
+    -> cmd_pat_matches uenv (cpat_while ep cp) (i_while e c)
+| cpat_seq_matches: forall uenv cp1 cp2 c1 c2,
+    cmd_pat_matches uenv cp1 c1
+    -> cmd_pat_matches uenv cp2 c2
+    -> cmd_pat_matches uenv (cpat_seq cp1 cp2) (i_seq c1 c2).
+
+Lemma match_cmd_correct: forall cp c uenv1 uenv2,
+    match_cmd cp c uenv1 = inr uenv2
+    -> cmd_pat_matches uenv2 cp c.
+Proof.
+Admitted.
+
+Lemma match_cmd_prefix_seq_correct: forall cp c1 uenv1 uenv2 c2,
+    match_cmd_prefix cp (i_seq c1 c2) uenv1 = inr (uenv2, Some c2)
+    -> cmd_pat_matches uenv2 cp c1.
+Proof.
+Admitted.
+
+Lemma match_cmd_prefix_nonseq_correct: forall cp c uenv1 uenv2,
+    match_cmd_prefix cp c uenv1 = inr (uenv2, None)
+    -> cmd_pat_matches uenv2 cp c.
+Proof.
+Admitted.

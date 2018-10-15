@@ -32,7 +32,7 @@ Module KitchenSink(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap).
   Goal forall ctx sctx,
       welltyped ctx prog ->
       VarMap.MapsTo x 1%Z sctx ->
-      (prog ~_(0%R) prog : denote_env sctx ==> denote_env sctx)%triple.
+      (ctx ⊕ ctx |- prog ~_(0%R) prog : denote_env sctx ==> denote_env sctx)%triple.
     intros ctx sctx Htyped Hsens_typed.
     unfold prog; inversion Htyped; subst.
     inversion H2; subst.

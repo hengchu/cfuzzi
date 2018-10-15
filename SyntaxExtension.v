@@ -40,6 +40,6 @@ Parameter typing_rule_sens:
       let c' := compile c in
       uncurry_P
         (premises_sens tctx pre c post eps)
-        (c' ~_(eps) c' : denote_env pre ==> denote_env post)%triple.
+        (tctx ⊕ tctx |- c' ~_(eps) c' : denote_env pre ==> denote_env post)%triple.
 
 End Extension.

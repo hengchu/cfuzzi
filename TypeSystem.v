@@ -1221,7 +1221,7 @@ Qed.
 Lemma assign_sound :
   forall (ctx : env) (tctxt: st_env) (x : var) (e : expr) d,
     sens_expr ctx tctxt e = Some d ->
-    ((x <- e) ~_( 0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
+    (tctxt ⊕ tctxt |- (x <- e) ~_( 0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
 Admitted.
 
 End TS.

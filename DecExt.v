@@ -56,7 +56,7 @@ Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
       let c' := compile c in
       uncurry_P
         (premises_sens tctx pre c post eps)
-        (c' ~_(eps) c' : denote_env pre ==> denote_env post)%triple.
+        (tctx ⊕ tctx |- c' ~_(eps) c' : denote_env pre ==> denote_env post)%triple.
   Proof.
     intros tctx pre c post eps.
     destruct c as [x]; simpl.
@@ -76,6 +76,7 @@ Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
       f_equal; omega.
     - intros m1 m2.
       rewrite Hsens.
+      intros Hm1t Hm2t.
       apply env_update_impl with (d' := sens); auto.
       omega.
     - fourier.

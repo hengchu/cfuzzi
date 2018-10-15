@@ -1,5 +1,8 @@
 Require Export Cfuzzi.Pattern.
 Require Export Cfuzzi.TypeSystem.
+Require Import Coq.Reals.Reals.
+Require Export Coq.QArith.QArith.
+Require Import Fourier.
 
 Definition M_nondet (A : Type) :=
   list A.
@@ -46,12 +49,23 @@ Import TSImpl APRHLImpl SEMImpl LAPImpl CARImpl RP PP MP UP EImpl.
    the matched components, a typing environment to the output typing environment
    with potential failure. Since we don't allow strong updates, the simple types
    will not change, and the typing functions don't need to return them *)
-Definition typing_rule_func := uni_env -> env -> st_env -> option (M_nondet env).
+Record env_eps :=
+  Build_env_eps
+    { sensitivities: env;
+    epsilon: Q }.
+Definition typing_rule_func := uni_env -> env -> st_env -> option (M_nondet env_eps).
 Definition typing_rule := (cmd_pat * typing_rule_func)%type.
+Definition typing_rule_sound (rule: typing_rule) :=
+  forall c uenv senv env envs,
+    cmd_pat_matches uenv (fst rule) c
+    -> (snd rule) uenv senv env = Some envs
+    -> Forall
+        (fun e => env ⊕ env |- c ~_(Qreals.Q2R (epsilon e)) c
+               : denote_env senv ==> denote_env (sensitivities e))%triple envs.
 
 (* Step returns the resulting typing environment in a non-deterministic monad *)
 Fixpoint step (rules: list typing_rule) (prog: cmd)
-  : uni_env -> env -> st_env  -> M_nondet (env * (option cmd))%type :=
+  : uni_env -> env -> st_env  -> M_nondet (env_eps * (option cmd))%type :=
   fun uenv senv stenv =>
   match rules with
   | [] => []
@@ -70,7 +84,7 @@ Fixpoint step (rules: list typing_rule) (prog: cmd)
 
 (* Non-deterministically search for all typing trees up to the given depth *)
 Fixpoint search (rules: list typing_rule) (prog: cmd) (depth: nat)
-  : uni_env -> env -> st_env -> M_nondet (env * option cmd)%type :=
+  : uni_env -> env -> st_env -> M_nondet (env_eps * option cmd)%type :=
   fun uenv senv stenv =>
   match depth with
   | O => []
@@ -82,7 +96,7 @@ Fixpoint search (rules: list typing_rule) (prog: cmd) (depth: nat)
       (* Use the original unification environment so we can re-use unification
          variables across typing rules
        *)
-      | (senv', Some rem) => search rules rem n' uenv senv' stenv
+      | (senv', Some rem) => search rules rem n' uenv (sensitivities senv') stenv
       end
     )%M_nondet
   end.
@@ -95,6 +109,14 @@ Definition if_sensitive {A: Type} (senv: env) (tenv: st_env) (e: expr) (k : opti
 
 Local Open Scope string_scope.
 
+Fixpoint lossless_expr_compute (stenv: st_env) (e: expr) := false.
+
+Lemma lossless_expr_compute_impl:
+  forall stenv e,
+    lossless_expr_compute stenv e = true -> lossless_expr stenv e.
+Proof.
+Admitted.
+
 Definition assign_pat :=
   ("?x" <- "?e")%pat.
 Definition assign_func : typing_rule_func :=
@@ -103,16 +125,56 @@ Definition assign_func : typing_rule_func :=
      v <-- try_get_variable x_ur ;;;
      e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      rhs <-- try_get_expr e_ur ;;;
-     let srhs := sens_expr senv stenv rhs in
-     Some [env_update v senv srhs]
+     if welltyped_cmd_compute stenv (v <- rhs)%cmd &&
+        lossless_expr_compute stenv rhs
+     then
+       let srhs := sens_expr senv stenv rhs in
+       Some [Build_env_eps (env_update v senv srhs) 0%Q]
+     else
+       None
     )%option.
 Definition assign_rule := (assign_pat, assign_func).
+
+Arguments welltyped_cmd_compute : simpl never.
+Arguments lossless_expr_compute : simpl never.
+
+Lemma assign_rule_sound:
+  typing_rule_sound assign_rule.
+Proof.
+  unfold typing_rule_sound, assign_rule; simpl.
+  intros c uenv senv stenv envs Hmatch Henvs.
+  unfold assign_pat, assign_func in *.
+  inv Hmatch. inv H1. inv H3. inv H5.
+  apply VarMap.find_1 in H1.
+  apply VarMap.find_1 in H2.
+  unfold M_option_bind in Henvs.
+  replace (VarMap.find "?x" uenv) with (Some (uni_variable v)) in Henvs; auto.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
+  simpl in Henvs.
+  destruct (welltyped_cmd_compute stenv (v <- e)%cmd) eqn:Hwelltyped;
+    destruct (lossless_expr_compute stenv e) eqn:Hlossless_e;
+    try (simpl in Henvs; solve [inv Henvs] ).
+  apply lossless_expr_compute_impl in Hlossless_e.
+  rewrite <- welltyped_iff in Hwelltyped.
+  inv Henvs.
+  apply Forall_cons; auto.
+  simpl.
+  rewrite RMicromega.IQR_0.
+  simpl.
+  assert (Hwelltyped2: welltyped stenv (v <- e)%cmd) by auto.
+  inv Hwelltyped2.
+  eapply aprhl_conseq with (env1 := stenv) (env2 := stenv); auto.
+  apply aprhl_assign with (env1 := stenv) (env2 := stenv); auto.
+  - intros m1 m2 Hm1t Hm2t Hstronger_precond; simpl.
+    unfold assign_sub_left, assign_sub_right.
+    unfold lossless_expr in Hlossless_e.
+Admitted.
 
 Definition skip_pat :=
   (cpat_skip)%pat.
 Definition skip_func : typing_rule_func :=
   fun uenv senv stenv =>
-    Some [senv].
+    Some [Build_env_eps senv 0%Q].
 Definition skip_rule := (skip_pat, skip_func).
 
 Definition cond_sens_pat :=
@@ -131,7 +193,9 @@ Definition cond_sens_func : typing_rule_func :=
     let modified_vars := (mvs c1 ++ mvs c2)%list in
     if_sensitive
       senv stenv e
-      (Some [List.fold_right (fun x senv => env_update x senv None) senv modified_vars]%list)
+      (Some [Build_env_eps
+               (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+               0%Q]%list)
   )%option.
 Definition cond_sens_rule := (cond_sens_pat, cond_sens_func).
 
@@ -148,7 +212,9 @@ Definition while_sens_func : typing_rule_func :=
      let modified_vars := mvs c in
      if_sensitive
        senv stenv e
-       (Some [List.fold_right (fun x senv => env_update x senv None) senv modified_vars]%list)
+       (Some [Build_env_eps
+                (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+                0%Q]%list)
   )%option.
 Definition while_sens_rule := (while_sens_pat, while_sens_func).
 
@@ -157,8 +223,9 @@ Definition if_nonsens_pat :=
    then "?c1"
    else "?c2"
    end)%pat.
+Search Qlt.
 Definition if_nonsens_func
-           (recur: env -> st_env -> cmd -> option (M_nondet env)): typing_rule_func :=
+           (recur: env -> st_env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
@@ -175,17 +242,26 @@ Definition if_nonsens_func
        Some (
          senv1 <-- many_senv1 ;;;
          senv2 <-- many_senv2 ;;;
-         M_nondet_return (env_max senv1 senv2)
+         if (Qlt_le_dec 0 (epsilon senv1))%Q
+         then []
+         else if (Qlt_le_dec 0 (epsilon senv2))%Q
+              then []
+              else M_nondet_return
+                     (Build_env_eps
+                        (env_max
+                           (sensitivities senv1)
+                           (sensitivities senv2))
+                        0%Q)
        )%M_nondet
     )%option.
-Definition if_nonsens_rule (recur: env -> st_env -> cmd -> option (M_nondet env)) :=
+Definition if_nonsens_rule (recur: env -> st_env -> cmd -> option (M_nondet env_eps)) :=
   (if_nonsens_pat, if_nonsens_func recur).
 
 Definition while_nonsens_pat :=
   (While "?e" do
          "?c"
    end)%pat.
-Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env)): typing_rule_func :=
+Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
@@ -197,7 +273,8 @@ Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env)): typi
         many_senv' <-- recur senv c ;;;
         Some (
           senv' <-- many_senv' ;;;
-          if BaseDefinitions.VarMap.equal Z.eqb senv senv'
+          if (Qeq_bool (epsilon senv') 0%Q)
+              && (BaseDefinitions.VarMap.equal Z.eqb senv (sensitivities senv'))
           then M_nondet_return senv'
           else []
         )%M_nondet
@@ -222,8 +299,10 @@ Definition cond_inc_func : typing_rule_func :=
          k2 <-- try_get_Z k2_ur ;;;
          let diff := Z.abs (k1 - k2)%Z in
          match BaseDefinitions.VarMap.find x senv with
-         | None => Some [senv]
-         | Some s => Some [env_update x senv (Some (s + diff)%Z)]
+         | None => Some [Build_env_eps senv 0%Q]
+         | Some s => Some [Build_env_eps
+                            (env_update x senv (Some (s + diff)%Z))
+                            0%Q]
          end)%option
     )%option.
 Definition cond_inc_rule := (cond_inc_pat, cond_inc_func).
@@ -258,7 +337,9 @@ Definition simple_arr_map_func: typing_rule_func :=
              arr_out <-- try_get_variable arr_out_ur ;;;
              let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
              let s_e := sens_expr senv' stenv e in
-             Some [env_update arr_out senv' s_e]
+             Some [Build_env_eps
+                     (env_update arr_out senv' s_e)
+                     0%Q]
            )%option
          end
        )%option
@@ -273,15 +354,15 @@ Definition is_None (o : option cmd) :=
 
 (* Filters the type checking results to the list that doesn't have any program
    fragments left *)
-Definition get_complete_results (m : M_nondet (env * option cmd)) : M_nondet env :=
+Definition get_complete_results (m : M_nondet (env_eps * option cmd)) : M_nondet env_eps :=
   List.map fst (List.filter (fun e_oc => is_None (snd e_oc)) m).
 
 Definition lift_checker
            (m : env
                 -> st_env
                 -> cmd
-                -> M_nondet (env * option cmd))
-  : env -> st_env -> cmd -> option (M_nondet env) :=
+                -> M_nondet (env_eps * option cmd))
+  : env -> st_env -> cmd -> option (M_nondet env_eps) :=
   fun senv stenv prog =>
   Some (get_complete_results (m senv stenv prog)).
 
@@ -382,5 +463,4 @@ Eval compute in
             (varmap_from_list [("i", t_int); ("in", t_arr t_int); ("out", t_arr t_int); ("t", t_int)]%list)
             arr_map_prog.
 End Tests.
-
 End NondetTS.
