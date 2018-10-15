@@ -87,8 +87,8 @@ Fixpoint search (rules: list typing_rule) (prog: cmd) (depth: nat)
     )%M_nondet
   end.
 
-Definition if_sensitive {A: Type} (senv: env) (e: expr) (k : option A) : option A :=
-  match sens_expr senv e with
+Definition if_sensitive {A: Type} (senv: env) (tenv: st_env) (e: expr) (k : option A) : option A :=
+  match sens_expr senv tenv e with
   | None => k
   | Some s => if (s >? 0)%Z then k else None
   end.
@@ -103,7 +103,7 @@ Definition assign_func : typing_rule_func :=
      v <-- try_get_variable x_ur ;;;
      e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      rhs <-- try_get_expr e_ur ;;;
-     let srhs := sens_expr senv rhs in
+     let srhs := sens_expr senv stenv rhs in
      Some [env_update v senv srhs]
     )%option.
 Definition assign_rule := (assign_pat, assign_func).
@@ -130,7 +130,7 @@ Definition cond_sens_func : typing_rule_func :=
     c2 <-- try_get_cmd c2_ur ;;;
     let modified_vars := (mvs c1 ++ mvs c2)%list in
     if_sensitive
-      senv e
+      senv stenv e
       (Some [List.fold_right (fun x senv => env_update x senv None) senv modified_vars]%list)
   )%option.
 Definition cond_sens_rule := (cond_sens_pat, cond_sens_func).
@@ -147,7 +147,7 @@ Definition while_sens_func : typing_rule_func :=
      c <-- try_get_cmd c_ur ;;;
      let modified_vars := mvs c in
      if_sensitive
-       senv e
+       senv stenv e
        (Some [List.fold_right (fun x senv => env_update x senv None) senv modified_vars]%list)
   )%option.
 Definition while_sens_rule := (while_sens_pat, while_sens_func).
@@ -162,7 +162,7 @@ Definition if_nonsens_func
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
-     s_e <-- sens_expr senv e ;;;
+     s_e <-- sens_expr senv stenv e ;;;
      if (s_e >? 0)%Z
      then None
      else
@@ -189,7 +189,7 @@ Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env)): typi
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
-     s_e <-- sens_expr senv e ;;;
+     s_e <-- sens_expr senv stenv e ;;;
      if (s_e >? 0)%Z
      then None
      else c_ur <-- BaseDefinitions.VarMap.find "?c" uenv ;;;
@@ -213,7 +213,7 @@ Definition cond_inc_func : typing_rule_func :=
     (
       e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
       e <-- try_get_expr e_ur ;;;
-      if_sensitive senv e
+      if_sensitive senv stenv e
         (x_ur <-- BaseDefinitions.VarMap.find "?x" uenv ;;;
          x <-- try_get_variable x_ur ;;;
          k1_ur <-- BaseDefinitions.VarMap.find "?k1" uenv ;;;
@@ -257,7 +257,7 @@ Definition simple_arr_map_func: typing_rule_func :=
              arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
              arr_out <-- try_get_variable arr_out_ur ;;;
              let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
-             let s_e := sens_expr senv' e in
+             let s_e := sens_expr senv' stenv e in
              Some [env_update arr_out senv' s_e]
            )%option
          end

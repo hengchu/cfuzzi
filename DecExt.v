@@ -1,4 +1,5 @@
 Require Export Cfuzzi.SyntaxExtension.
+Require Export Fourier.
 
 Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
 <: Extension E Lap LOGIC.
@@ -69,7 +70,7 @@ Module Decrement(E : Embedding) (Lap: Laplace E) (LOGIC: APRHL E Lap)
     - apply welltyped_assign with (t := t_int); auto.
     - apply welltyped_assign with (t := t_int); auto.
     - rewrite Hsens.
-      apply assign_sound.
+      apply assign_sound with (tctxt := tctx).
       simpl; auto.
       rewrite Hsens; simpl.
       f_equal; omega.

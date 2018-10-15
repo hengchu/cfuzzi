@@ -1,4 +1,5 @@
 Require Export Cfuzzi.TypeSystem.
+Require Export Coq.Reals.Reals.
 
 Fixpoint uncurry_P (premises : list Prop) (conclusion : Prop) :=
   match premises with
