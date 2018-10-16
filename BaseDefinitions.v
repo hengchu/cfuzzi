@@ -268,4 +268,17 @@ Proof.
   inversion Hv2; subst; auto.
 Qed.
 
+Lemma VarMap_MapsTo_remove_False: forall {T} m x (v:T),
+    ~(VarMap.MapsTo x v (VarMap.remove x m)).
+Proof.
+  intros T m x v Hxv.
+  assert (H_not_In: ~VarMap.In x (VarMap.remove x m)).
+  { apply VarMap.remove_1; auto. }
+  unfold VarMap.MapsTo in *. unfold VarMap.In in *.
+  unfold VarMap.Raw.PX.MapsTo in *.
+  unfold VarMap.Raw.PX.In in *.
+  apply H_not_In.
+  exists v; auto.
+Qed.
+
 Hint Resolve VarMap_MapsTo_Uniq.

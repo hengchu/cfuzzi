@@ -2,6 +2,7 @@ Require Export Cfuzzi.Pattern.
 Require Export Cfuzzi.TypeSystem.
 Require Import Coq.Reals.Reals.
 Require Export Coq.QArith.QArith.
+Require Export Coq.QArith.Qminmax.
 Require Import Fourier.
 
 Definition M_nondet (A : Type) :=
@@ -12,6 +13,36 @@ Definition M_nondet_return {A: Type} (a : A) : M_nondet A :=
 
 Definition M_nondet_bind {A B: Type} (ma: M_nondet A) (f: A -> M_nondet B): M_nondet B :=
   List.concat (List.map f ma).
+
+Lemma List_Forall_app: forall {A} (P : A -> Prop) xs ys,
+    Forall P xs -> Forall P ys -> Forall P (xs ++ ys).
+Proof.
+  intros A P xs ys HForall.
+  induction HForall.
+  - intros Hys. simpl. auto.
+  - intros Hys. simpl. constructor; auto.
+Qed.
+
+Lemma List_Forall_concat: forall {A} (P : A -> Prop) xs,
+    Forall (fun x => Forall P x) xs -> Forall P (concat xs).
+Proof.
+  intros A P xs HForall.
+  induction HForall.
+  - simpl. constructor.
+  - simpl. apply List_Forall_app; auto.
+Qed.
+
+Lemma List_Forall_concatMap: forall {A B: Type} (P: A -> Prop) (Q: B -> Prop) (xs: list A)
+                               (f: A -> list B),
+    (forall a, P a -> Forall Q (f a))
+    -> Forall P xs
+    -> Forall Q (List.concat (List.map f xs)).
+Proof.
+  intros A B P Q xs f Himpl Hxs.
+  induction Hxs.
+  - simpl. constructor.
+  - simpl. apply List_Forall_app; auto.
+Qed.
 
 Notation "x '<--' ma ';;;' b" := (M_nondet_bind ma (fun x => b))
                                    (at level 75, right associativity) : M_nondet_scope.
@@ -103,19 +134,11 @@ Fixpoint search (rules: list typing_rule) (prog: cmd) (depth: nat)
 
 Definition if_sensitive {A: Type} (senv: env) (tenv: st_env) (e: expr) (k : option A) : option A :=
   match sens_expr senv tenv e with
-  | None => k
+  | None => None
   | Some s => if (s >? 0)%Z then k else None
   end.
 
 Local Open Scope string_scope.
-
-Fixpoint lossless_expr_compute (stenv: st_env) (e: expr) := false.
-
-Lemma lossless_expr_compute_impl:
-  forall stenv e,
-    lossless_expr_compute stenv e = true -> lossless_expr stenv e.
-Proof.
-Admitted.
 
 Definition assign_pat :=
   ("?x" <- "?e")%pat.
@@ -125,8 +148,7 @@ Definition assign_func : typing_rule_func :=
      v <-- try_get_variable x_ur ;;;
      e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      rhs <-- try_get_expr e_ur ;;;
-     if welltyped_cmd_compute stenv (v <- rhs)%cmd &&
-        lossless_expr_compute stenv rhs
+     if welltyped_cmd_compute stenv (v <- rhs)%cmd
      then
        let srhs := sens_expr senv stenv rhs in
        Some [Build_env_eps (env_update v senv srhs) 0%Q]
@@ -136,7 +158,7 @@ Definition assign_func : typing_rule_func :=
 Definition assign_rule := (assign_pat, assign_func).
 
 Arguments welltyped_cmd_compute : simpl never.
-Arguments lossless_expr_compute : simpl never.
+Arguments sens_expr : simpl never.
 
 Lemma assign_rule_sound:
   typing_rule_sound assign_rule.
@@ -152,9 +174,7 @@ Proof.
   replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
   simpl in Henvs.
   destruct (welltyped_cmd_compute stenv (v <- e)%cmd) eqn:Hwelltyped;
-    destruct (lossless_expr_compute stenv e) eqn:Hlossless_e;
     try (simpl in Henvs; solve [inv Henvs] ).
-  apply lossless_expr_compute_impl in Hlossless_e.
   rewrite <- welltyped_iff in Hwelltyped.
   inv Henvs.
   apply Forall_cons; auto.
@@ -163,12 +183,57 @@ Proof.
   simpl.
   assert (Hwelltyped2: welltyped stenv (v <- e)%cmd) by auto.
   inv Hwelltyped2.
-  eapply aprhl_conseq with (env1 := stenv) (env2 := stenv); auto.
+  eapply aprhl_conseq
+    with (env1 := stenv)
+         (env2 := stenv)
+         (Q' := denote_env (env_update v senv (sens_expr senv stenv e))); auto.
   apply aprhl_assign with (env1 := stenv) (env2 := stenv); auto.
   - intros m1 m2 Hm1t Hm2t Hstronger_precond; simpl.
     unfold assign_sub_left, assign_sub_right.
-    unfold lossless_expr in Hlossless_e.
-Admitted.
+    intros [v2 Hv2]. rewrite Hv2.
+    intros [v1 Hv1]. rewrite Hv1.
+    unfold mem_set.
+    unfold denote_env in *.
+    intros x d Hxd.
+    destruct (StringDec.eq_dec x v).
+    + subst.
+      destruct (sens_expr senv stenv e) as [se|] eqn:Hse.
+      * simpl in Hxd. unfold env_set in Hxd.
+        assert (VarMap.MapsTo v se (VarMap.add v se senv)). {
+          apply VarMap.add_1; auto.
+        }
+        assert (d = se). {
+          eapply VarMap_MapsTo_Uniq; eauto.
+        }
+        subst.
+        assert (exists dv, val_metric_f v1 v2 = Some dv /\ (dv <= se)%Z). {
+          apply sens_expr_sound
+            with (m1 := m1)
+                 (m2 := m2)
+                 (ctx := senv)
+                 (tctx := stenv)
+                 (e := e)
+                 (t := t); auto.
+        }
+        destruct H0 as [d' [ Hv1v2 Hd'] ].
+        exists v1, v2, d'.
+        repeat split; auto.
+        apply VarMap.add_1; auto.
+        apply VarMap.add_1; auto.
+      * simpl in Hxd. unfold env_del in Hxd.
+        apply VarMap_MapsTo_remove_False in Hxd. inv Hxd.
+    + assert (VarMap.MapsTo x d senv). {
+        destruct (sens_expr senv stenv e) as [se|] eqn:Hse; simpl in Hxd.
+        - unfold env_set in Hxd. apply VarMap.add_3 with (x := v) (e' := se); auto.
+        - unfold env_del in Hxd. apply VarMap.remove_3 with (x := v); auto.
+      }
+      clear Hxd.
+      destruct (Hstronger_precond x d) as [v1' [v2' [vd [Hv1' [Hv2' [Hv1v2 Hvd] ] ] ] ] ]; auto.
+      exists v1', v2', vd. repeat split; auto.
+      apply VarMap.add_2; auto.
+      apply VarMap.add_2; auto.
+  - fourier.
+Qed.
 
 Definition skip_pat :=
   (cpat_skip)%pat.
@@ -176,6 +241,20 @@ Definition skip_func : typing_rule_func :=
   fun uenv senv stenv =>
     Some [Build_env_eps senv 0%Q].
 Definition skip_rule := (skip_pat, skip_func).
+
+Lemma skip_rule_sound:
+  typing_rule_sound skip_rule.
+Proof.
+  unfold typing_rule_sound, skip_rule; simpl.
+  intros c uenv senv stenv envs Hmatch Henvs.
+  unfold skip_pat, skip_func in *.
+  inv Hmatch.
+  inv Henvs.
+  constructor; auto.
+  simpl.
+  rewrite RMicromega.IQR_0.
+  apply aprhl_skip.
+Qed.
 
 Definition cond_sens_pat :=
   (If "?e"
@@ -190,14 +269,47 @@ Definition cond_sens_func : typing_rule_func :=
     c1 <-- try_get_cmd c1_ur ;;;
     c2_ur <-- BaseDefinitions.VarMap.find "?c2" uenv ;;;
     c2 <-- try_get_cmd c2_ur ;;;
-    let modified_vars := (mvs c1 ++ mvs c2)%list in
-    if_sensitive
-      senv stenv e
-      (Some [Build_env_eps
-               (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
-               0%Q]%list)
+    if welltyped_cmd_compute stenv (If e then c1 else c2 end)%cmd
+    then
+      let modified_vars := (mvs c1 ++ mvs c2)%list in
+      if_sensitive
+        senv stenv e
+        (Some [Build_env_eps
+                 (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+                 0%Q]%list)
+    else None
   )%option.
 Definition cond_sens_rule := (cond_sens_pat, cond_sens_func).
+
+Lemma cond_sens_rule_sound:
+  typing_rule_sound cond_sens_rule.
+Proof.
+  unfold typing_rule_sound, cond_sens_rule; simpl.
+  intros c uenv senv stenv envs Hmatches Henvs.
+  unfold cond_sens_pat, cond_sens_func in *.
+  inv Hmatches. inv Henvs.
+  inv H3; inv H5; inv H6.
+  apply VarMap.find_1 in H2.
+  apply VarMap.find_1 in H3.
+  apply VarMap.find_1 in H4.
+  unfold M_option_bind in H0.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in H0; auto.
+  replace (VarMap.find "?c1" uenv) with (Some (uni_cmd c1)) in H0; auto.
+  replace (VarMap.find "?c2" uenv) with (Some (uni_cmd c2)) in H0; auto.
+  simpl in H0.
+  unfold if_sensitive in H0.
+  destruct (sens_expr senv stenv e) as [se|] eqn:Hse;
+    destruct (welltyped_cmd_compute stenv (If e then c1 else c2 end)%cmd) eqn:Htyped;
+    try (solve [inv H0] ).
+  rewrite <- welltyped_iff in Htyped.
+  destruct (se >? 0)%Z eqn:H_se_gt_0;
+    try (solve [inv H0] ).
+  inv H0.
+  constructor; auto.
+  simpl.
+  rewrite RMicromega.IQR_0.
+  apply mvs_inf_sound; auto.
+Qed.
 
 Definition while_sens_pat :=
   (While "?e" do
@@ -209,53 +321,147 @@ Definition while_sens_func : typing_rule_func :=
      e <-- try_get_expr e_ur ;;;
      c_ur <-- BaseDefinitions.VarMap.find "?c" uenv ;;;
      c <-- try_get_cmd c_ur ;;;
-     let modified_vars := mvs c in
-     if_sensitive
-       senv stenv e
-       (Some [Build_env_eps
-                (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
-                0%Q]%list)
+     if welltyped_cmd_compute stenv (While e do c end)%cmd
+     then
+       let modified_vars := mvs c in
+       if_sensitive
+         senv stenv e
+         (Some [Build_env_eps
+                  (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+                  0%Q]%list)
+     else None
   )%option.
 Definition while_sens_rule := (while_sens_pat, while_sens_func).
+
+Lemma while_sens_rule_sound:
+  typing_rule_sound while_sens_rule.
+Proof.
+  unfold typing_rule_sound, while_sens_rule; simpl.
+  intros c uenv senv stenv envs Hmatches Henvs.
+  unfold while_sens_pat, while_sens_func in *.
+  inv Hmatches. inv H2; inv H4.
+  unfold M_option_bind in *.
+  apply VarMap.find_1 in H1. apply VarMap.find_1 in H2.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
+  replace (VarMap.find "?c" uenv) with (Some (uni_cmd c0)) in Henvs; auto.
+  simpl in Henvs. unfold if_sensitive in Henvs.
+  destruct (sens_expr senv stenv e) as [se|] eqn:Hse;
+    destruct (welltyped_cmd_compute stenv (While e do c0 end)%cmd) eqn:Htyped;
+    try (solve [inv Henvs] ).
+  rewrite <- welltyped_iff in Htyped.
+  destruct (se >? 0)%Z eqn:Hse_gt_0;
+    try (solve [inv Henvs] ).
+  inv Henvs.
+  constructor; auto.
+  simpl.
+  rewrite RMicromega.IQR_0.
+  replace (mvs c0) with (mvs (While e do c0 end)%cmd); auto.
+  apply mvs_inf_sound; auto.
+Qed.
 
 Definition if_nonsens_pat :=
   (If "?e"
    then "?c1"
    else "?c2"
    end)%pat.
-Search Qlt.
+
+Search (Q -> Q -> Q).
+
 Definition if_nonsens_func
            (recur: env -> st_env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
      s_e <-- sens_expr senv stenv e ;;;
-     if (s_e >? 0)%Z
+     if negb (s_e =? 0)%Z
      then None
      else
        c1_ur <-- BaseDefinitions.VarMap.find "?c1" uenv ;;;
        c1 <-- try_get_cmd c1_ur ;;;
        c2_ur <-- BaseDefinitions.VarMap.find "?c2" uenv ;;;
        c2 <-- try_get_cmd c2_ur ;;;
-       many_senv1 <-- recur senv stenv c1 ;;;
-       many_senv2 <-- recur senv stenv c2 ;;;
-       Some (
-         senv1 <-- many_senv1 ;;;
-         senv2 <-- many_senv2 ;;;
-         if (Qlt_le_dec 0 (epsilon senv1))%Q
-         then []
-         else if (Qlt_le_dec 0 (epsilon senv2))%Q
-              then []
-              else M_nondet_return
-                     (Build_env_eps
-                        (env_max
-                           (sensitivities senv1)
-                           (sensitivities senv2))
-                        0%Q)
-       )%M_nondet
+       if welltyped_cmd_compute stenv (If e then c1 else c2 end)%cmd
+       then
+         many_senv1 <-- recur senv stenv c1 ;;;
+         many_senv2 <-- recur senv stenv c2 ;;;
+         Some (
+           senv1 <-- many_senv1 ;;;
+           senv2 <-- many_senv2 ;;;
+            M_nondet_return
+                       (Build_env_eps
+                          (env_max
+                             (sensitivities senv1)
+                             (sensitivities senv2))
+                          (Qmax (epsilon senv1) (epsilon senv2))%Q))%M_nondet
+       else None
     )%option.
 Definition if_nonsens_rule (recur: env -> st_env -> cmd -> option (M_nondet env_eps)) :=
   (if_nonsens_pat, if_nonsens_func recur).
+
+Definition recur_sound (f: env -> st_env -> cmd -> option (M_nondet env_eps)) :=
+  forall senv stenv c envs,
+    f senv stenv c = Some envs
+    -> Forall
+        (fun r => stenv ⊕ stenv |- c ~_(Qreals.Q2R (epsilon r)) c
+                               : denote_env senv ==> denote_env (sensitivities r))%triple
+        envs.
+
+Lemma if_nonsens_rule_sound:
+  forall f, recur_sound f -> typing_rule_sound (if_nonsens_rule f).
+Proof.
+  intros recur Hrecur.
+  unfold recur_sound, typing_rule_sound, if_nonsens_rule in *.
+  intros c uenv senv stenv envs Hmatches Henvs.
+  unfold if_nonsens_pat, if_nonsens_func in *.
+  simpl in *.
+  inv Hmatches. inv H3; inv H5; inv H6.
+  apply VarMap.find_1 in H1.
+  apply VarMap.find_1 in H2.
+  apply VarMap.find_1 in H3.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
+  replace (VarMap.find "?c1" uenv) with (Some (uni_cmd c1)) in Henvs; auto.
+  replace (VarMap.find "?c2" uenv) with (Some (uni_cmd c2)) in Henvs; auto.
+  simpl in Henvs.
+  destruct (sens_expr senv stenv e) as [se|] eqn:Hse;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  destruct (se =? 0)%Z eqn:Hse_gt_0;
+    try (solve [inv Henvs] ).
+  destruct (welltyped_cmd_compute stenv (If e then c1 else c2 end)%cmd) eqn:Htyped;
+    try (solve [inv Henvs] ).
+  rewrite <- welltyped_iff in Htyped.
+  simpl in Henvs.
+  remember (recur senv stenv c1) as envs1.
+  remember (recur senv stenv c2) as envs2.
+  destruct envs1 as [envs1'|] eqn:Henvs1;
+    destruct envs2 as [envs2'|] eqn:Henvs2;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  rewrite Z.eqb_eq in Hse_gt_0.
+  clear H1 H2 H3; subst.
+  inv Henvs.
+  eapply List_Forall_concatMap; eauto.
+  intros [env1 eps1] Henv1.
+  eapply List_Forall_concatMap; eauto.
+  intros [env2 eps2] Henv2.
+  constructor; auto.
+  simpl in *.
+  apply aprhl_cond; auto.
+  - intros m1 m2 Hm1t Hm2t Hm1m2.
+    admit. (* Use the fact that e is 0 sensitive *)
+  - inv Htyped; eapply aprhl_conseq; eauto.
+    intros m1 m2 Hm1t Hm2t [Hm1m2 Hm1e_true]. auto.
+    intros m1 m2 Hm1t Hm2t Hm1m2.
+    apply env_max_impl_1; auto.
+    apply Qreals.Qle_Rle.
+    apply Q.le_max_l.
+  - inv Htyped; eapply aprhl_conseq; eauto.
+    intros m1 m2 Hm1t Hm2t [Hm1m2 Hm1e_false]. auto.
+    intros m1 m2 Hm1t Hm2t Hm1m2.
+    apply env_max_impl_2; auto.
+    apply Qreals.Qle_Rle.
+    apply Q.le_max_r.
+Admitted.
 
 Definition while_nonsens_pat :=
   (While "?e" do

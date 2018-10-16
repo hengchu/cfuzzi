@@ -1218,10 +1218,34 @@ Proof.
     repeat split; auto.
 Qed.
 
+Lemma mvs_inf_sound:
+  forall senv stenv c,
+    welltyped stenv c
+    -> (stenv ⊕ stenv |- c ~_(0%R) c
+                       : denote_env senv ==> denote_env
+                                    (List.fold_right
+                                       (fun x senv => env_update x senv None)
+                                       senv
+                                       (mvs c)))%triple.
+Proof.
+Admitted.
+
 Lemma assign_sound :
   forall (ctx : env) (tctxt: st_env) (x : var) (e : expr) d,
     sens_expr ctx tctxt e = Some d ->
     (tctxt ⊕ tctxt |- (x <- e) ~_( 0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
+Admitted.
+
+Lemma env_max_impl_1:
+  forall env1 env2,
+  forall m1 m2, denote_env env1 m1 m2 -> denote_env (env_max env1 env2) m1 m2.
+Proof.
+Admitted.
+
+Lemma env_max_impl_2:
+  forall env1 env2,
+  forall m1 m2, denote_env env2 m1 m2 -> denote_env (env_max env1 env2) m1 m2.
+Proof.
 Admitted.
 
 End TS.

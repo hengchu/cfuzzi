@@ -96,13 +96,17 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
              (mem_get x1 m1)
              (mem_get x2 m2)).
 
+  Definition some_value (m: memory) (e: expr) :=
+    exists v, sem_expr m e = Some v.
+
   Definition assign_sub_left
             (P : memory_relation)
             (x : var)
-            (a : option val) : memory_relation :=
+            (e : expr) : memory_relation :=
     fun m1 =>
       fun m2 =>
-        match a with
+        some_value m1 e ->
+        match sem_expr m1 e with
         | Some a =>
           P (mem_set x a m1) m2
         | None =>
@@ -112,10 +116,11 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
   Definition assign_sub_right
              (P : memory_relation)
              (x : var)
-             (a : option val) : memory_relation :=
+             (e : expr) : memory_relation :=
     fun m1 =>
       fun m2 =>
-        match a with
+        some_value m2 e ->
+        match sem_expr m2 e with
         | Some a =>
           P m1 (mem_set x a m2)
         | None =>
@@ -125,18 +130,16 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
   Notation "P 'L([' x |-> a '])'" := (assign_sub_left P x a) (at level 10).
   Notation "P 'R([' x |-> a '])'" := (assign_sub_right P x a) (at level 10).
 
-  Definition lossless_expr (stenv: st_env) (e: expr) :=
-    forall m, welltyped_memory stenv m ->
-         exists v, sem_expr m e = Some v.
+  Parameter aprhl_skip:
+    forall (env1 env2: st_env) P,
+      env1 ⊕ env2 |- i_skip ~_(0%R) i_skip: P ==> P.
 
   Parameter aprhl_assign:
     forall (env1 env2 : st_env) (x1 x2 : var) (e1 e2 : expr) P,
       welltyped env1 (x1 <- e1)%cmd ->
       welltyped env2 (x2 <- e2)%cmd ->
-      lossless_expr env1 e1 ->
-      lossless_expr env2 e2 ->
       env1 ⊕ env2 |- (x1 <- e1) ~_(0%R) (x2 <- e2) :
-        (fun m1 m2 => P L([x1 |-> sem_expr m1 e1]) R([x2 |-> sem_expr m2 e2]) m1 m2)
+        (fun m1 m2 => P L([x1 |-> e1]) R([x2 |-> e2]) m1 m2)
           ==> P.
 
   Parameter aprhl_seq:
@@ -156,7 +159,10 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
       (P Q : memory_relation) (eps : R),
       welltyped env1 (If e1 then ct1 else cf1 end)%cmd ->
       welltyped env1 (If e2 then ct2 else cf2 end)%cmd ->
-      forall m1 m2, P m1 m2 -> (sem_expr m1 e1 = sem_expr m2 e2) ->
+      (forall m1 m2, welltyped_memory env1 m1
+                -> welltyped_memory env2 m2
+                -> P m1 m2
+                -> sem_expr m1 e1 = sem_expr m2 e2) ->
       env1 ⊕ env2 |- ct1 ~_(eps) ct2 : (fun m1 m2 => P m1 m2
                                    /\ sem_expr m1 e1 = Some (v_bool true)) ==> Q ->
       env1 ⊕ env2 |- cf1 ~_(eps) cf2 : (fun m1 m2 => P m1 m2
@@ -260,4 +266,5 @@ Parameter aprhl_equiv:
   (forall m, eq_distr ([[c1]] m) ([[c1']] m)) ->
   (forall m, eq_distr ([[c2]] m) ([[c2']] m)) ->
   env1 ⊕ env2 |- c1 ~_(eps) c2 : P ==> Q.
+
 End APRHL.
