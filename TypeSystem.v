@@ -3,6 +3,7 @@ Require Export Cfuzzi.Logic.
 Require Export Cfuzzi.Semantics.
 
 Require Import Coq.Reals.Reals.
+Require Import Fourier.
 
 Section Metrics.
 
@@ -1236,6 +1237,16 @@ Lemma assign_sound :
     (tctxt ⊕ tctxt |- (x <- e) ~_( 0%R) (x <- e) : denote_env ctx ==> denote_env (env_update x ctx (Some d)))%triple.
 Admitted.
 
+Lemma bool_0_same:
+  forall senv stenv e,
+    welltyped_expr stenv e t_bool
+    -> sens_expr senv stenv e = Some 0%Z
+    -> forall m1 m2, welltyped_memory stenv m1
+               -> welltyped_memory stenv m2
+               -> sem_expr m1 e = sem_expr m2 e.
+Proof.
+Admitted.
+
 Lemma env_max_impl_1:
   forall env1 env2,
   forall m1 m2, denote_env env1 m1 m2 -> denote_env (env_max env1 env2) m1 m2.
@@ -1247,5 +1258,111 @@ Lemma env_max_impl_2:
   forall m1 m2, denote_env env2 m1 m2 -> denote_env (env_max env1 env2) m1 m2.
 Proof.
 Admitted.
+
+Lemma env_equal_Equal:
+  forall env1 env2,
+    VarMap.equal Z.eqb env1 env2 = true
+    -> VarMap.Equal env1 env2.
+Proof.
+  intros env1 env2 Hequal.
+  unfold VarMap.Equal.
+  intros y.
+  apply VarMap.equal_2 in Hequal.
+  unfold VarMap.Equivb in Hequal.
+  unfold VarMap.Raw.Equivb in Hequal.
+  inv Hequal.
+  destruct (BaseDefinitions.VarMap.find y env1) as [yv1|] eqn:Hy1;
+    destruct (BaseDefinitions.VarMap.find y env2) as [yv2|] eqn:Hy2;
+    auto.
+  - apply VarMap.find_2 in Hy1.
+    apply VarMap.find_2 in Hy2.
+    f_equal.
+    rewrite <- Z.eqb_eq.
+    apply H0 with (k := y); auto.
+  - apply VarMap.find_2 in Hy1.
+    unfold VarMap.MapsTo in Hy1.
+    unfold VarMap.Raw.PX.In in H.
+    destruct (H y) as [H_LR H_RL].
+    destruct H_LR as [yv2 Hyv2].
+    { exists yv1; auto. }
+    apply VarMap.find_1 in Hyv2.
+    rewrite Hy2 in Hyv2.
+    inv Hyv2.
+  - apply VarMap.find_2 in Hy2.
+    unfold VarMap.MapsTo in Hy2.
+    unfold VarMap.Raw.PX.In in H.
+    destruct (H y) as [H_LR H_RL].
+    destruct H_RL as [yv1 Hyv1].
+    { exists yv2; auto. }
+    apply VarMap.find_1 in Hyv1.
+    rewrite Hy1 in Hyv1.
+    inv Hyv1.
+Qed.
+
+Hint Resolve env_equal_Equal.
+
+Add Parametric Morphism (m1 m2: memory) : (fun env => denote_env env m1 m2)
+    with signature (@VarMap.Equal Z) ==> ( iff )
+      as denote_env_equal_inv.
+Proof.
+  intros env1 env2 Heq.
+  split.
+  - intros H. unfold denote_env in *.
+    intros y d Hyd. unfold VarMap.Equal in Heq.
+    apply VarMap.find_1 in Hyd.
+    rewrite <- Heq in Hyd.
+    apply VarMap.find_2 in Hyd.
+    destruct (H y d Hyd) as [v1 [v2 [vd [Hyv1 [Hyv2 [Hv Hd] ] ] ] ] ].
+    exists v1, v2, vd; repeat split; auto.
+  - intros H. unfold denote_env in *.
+    intros y d Hyd. unfold VarMap.Equal in Heq.
+    apply VarMap.find_1 in Hyd.
+    rewrite Heq in Hyd.
+    apply VarMap.find_2 in Hyd.
+    destruct (H y d Hyd) as [v1 [v2 [vd [Hyv1 [Hyv2 [Hv Hd] ] ] ] ] ].
+    exists v1, v2, vd; repeat split; auto.
+Qed.
+
+Lemma env_equal_inv1:
+  forall stenv c eps env1 env2 env1' env2',
+    VarMap.Equal env1 env1'
+    -> VarMap.Equal env2 env2'
+    -> welltyped stenv c
+    -> (stenv ⊕ stenv |- c ~_(eps) c : denote_env env1 ==> denote_env env2)%triple
+    -> (stenv ⊕ stenv |- c ~_(eps) c : denote_env env1' ==> denote_env env2')%triple.
+Proof.
+  intros stenv c eps env1 env2 env1' env2'.
+  intros Heq1 Heq2 Ht Haprhl.
+  eapply aprhl_conseq; eauto.
+  - intros m1 m2 Hm1t Hm2t Hm1m2'.
+    rewrite denote_env_equal_inv; eauto.
+  - intros m1 m2 Hm1t Hm2t Hm1m2.
+    rewrite <- denote_env_equal_inv.
+    apply Hm1m2; auto.
+    apply Heq2.
+  - fourier.
+Qed.
+
+Lemma env_equal_inv2:
+  forall stenv c eps env1 env2 env1' env2',
+    VarMap.Equal env1 env1'
+    -> VarMap.Equal env2 env2'
+    -> welltyped stenv c
+    -> (stenv ⊕ stenv |- c ~_(eps) c : denote_env env1' ==> denote_env env2')%triple
+    -> (stenv ⊕ stenv |- c ~_(eps) c : denote_env env1 ==> denote_env env2)%triple.
+Proof.
+  intros stenv c eps env1 env2 env1' env2'.
+  intros Heq1 Heq2 Ht Haprhl.
+  eapply aprhl_conseq; eauto.
+  - intros m1 m2 Hm1t Hm2t Hm1m2'.
+    rewrite <- denote_env_equal_inv.
+    apply Hm1m2'.
+    auto.
+  - intros m1 m2 Hm1t Hm2t Hm1m2.
+    rewrite denote_env_equal_inv.
+    apply Hm1m2.
+    auto.
+  - fourier.
+Qed.
 
 End TS.

@@ -176,7 +176,9 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
       (Pinv : memory_relation),
       welltyped env1 (While e1 do c1 end)%cmd ->
       welltyped env2 (While e2 do c2 end)%cmd ->
-      forall m1 m2, Pinv m1 m2 -> (sem_expr m1 e1 = sem_expr m2 e2) ->
+      (forall m1 m2, welltyped_memory env1 m1
+                -> welltyped_memory env2 m2
+                -> Pinv m1 m2 -> (sem_expr m1 e1 = sem_expr m2 e2)) ->
       env1 ⊕ env2 |- c1 ~_(0%R) c2 : (fun m1 m2 => Pinv m1 m2
                                  /\ sem_expr m1 e1 = Some (v_bool true)) ==> Pinv ->
       env1 ⊕ env2 |- (While e1 do c1 end) ~_(0%R) (While e2 do c2 end)

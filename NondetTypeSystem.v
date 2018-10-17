@@ -365,8 +365,6 @@ Definition if_nonsens_pat :=
    else "?c2"
    end)%pat.
 
-Search (Q -> Q -> Q).
-
 Definition if_nonsens_func
            (recur: env -> st_env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
   fun uenv senv stenv =>
@@ -448,7 +446,8 @@ Proof.
   simpl in *.
   apply aprhl_cond; auto.
   - intros m1 m2 Hm1t Hm2t Hm1m2.
-    admit. (* Use the fact that e is 0 sensitive *)
+    inv Htyped.
+    apply bool_0_same with (senv := senv) (stenv := stenv); auto.
   - inv Htyped; eapply aprhl_conseq; eauto.
     intros m1 m2 Hm1t Hm2t [Hm1m2 Hm1e_true]. auto.
     intros m1 m2 Hm1t Hm2t Hm1m2.
@@ -461,30 +460,102 @@ Proof.
     apply env_max_impl_2; auto.
     apply Qreals.Qle_Rle.
     apply Q.le_max_r.
-Admitted.
+Qed.
 
 Definition while_nonsens_pat :=
   (While "?e" do
          "?c"
    end)%pat.
-Definition while_nonsens_func (recur: env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
+Definition while_nonsens_func (recur: env -> st_env -> cmd -> option (M_nondet env_eps)): typing_rule_func :=
   fun uenv senv stenv =>
     (e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
      e <-- try_get_expr e_ur ;;;
      s_e <-- sens_expr senv stenv e ;;;
-     if (s_e >? 0)%Z
+     if negb ((s_e =? 0)%Z)
      then None
      else c_ur <-- BaseDefinitions.VarMap.find "?c" uenv ;;;
-        c <-- try_get_cmd c_ur ;;;
-        many_senv' <-- recur senv c ;;;
-        Some (
-          senv' <-- many_senv' ;;;
-          if (Qeq_bool (epsilon senv') 0%Q)
-              && (BaseDefinitions.VarMap.equal Z.eqb senv (sensitivities senv'))
-          then M_nondet_return senv'
-          else []
-        )%M_nondet
+          c <-- try_get_cmd c_ur ;;;
+          if (welltyped_cmd_compute stenv (While e do c end)%cmd)
+          then
+            many_senv' <-- recur senv stenv c ;;;
+            Some (
+              senv' <-- many_senv' ;;;
+              if (Qeq_bool (epsilon senv') 0%Q)
+                && (BaseDefinitions.VarMap.equal Z.eqb senv (sensitivities senv'))
+              then M_nondet_return senv'
+              else []
+            )%M_nondet
+          else None
     )%option.
+
+Definition while_nonsens_rule (recur: env -> st_env -> cmd -> option (M_nondet env_eps)) :=
+  (while_nonsens_pat, while_nonsens_func recur).
+
+Lemma while_nonsens_rule_sound:
+  forall f, recur_sound f
+       -> typing_rule_sound (while_nonsens_rule f).
+Proof.
+  intros recur Hrecur.
+  unfold typing_rule_sound.
+  intros c uenv senv stenv envs Hmatches.
+  unfold while_nonsens_rule in *.
+  unfold while_nonsens_pat in *.
+  unfold while_nonsens_func in *.
+  simpl in *.
+  intros Henvs.
+  inv Hmatches.
+  inv H2; inv H4.
+  apply VarMap.find_1 in H1.
+  apply VarMap.find_1 in H2.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
+  replace (VarMap.find "?c" uenv) with (Some (uni_cmd c0)) in Henvs; auto.
+  simpl in Henvs.
+  destruct (sens_expr senv stenv e) as [se|] eqn:Hse;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  destruct (se =? 0)%Z eqn:H_se_gt_0;
+    try (solve [inv Henvs] ).
+  destruct (welltyped_cmd_compute stenv (While e do c0 end)%cmd) eqn:Htyped;
+    try (solve [inv Henvs] ).
+  rewrite <- welltyped_iff in Htyped.
+  destruct (recur senv stenv c0) as [envs1|] eqn:Henvs1;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  inv Henvs.
+  eapply List_Forall_concatMap; eauto.
+  intros [env1 eps1] Henv1_eps1.
+  simpl in *.
+  destruct (Qeq_bool eps1 0) eqn:Heps1_eq_0;
+    destruct (VarMap.equal Z.eqb senv env1) eqn:Hsenv_eq_env1;
+    try (solve [constructor; auto] ).
+  simpl.
+  constructor; auto.
+  simpl.
+  rewrite Qeq_bool_iff in Heps1_eq_0.
+  apply Qreals.Qeq_eqR in Heps1_eq_0.
+  rewrite Heps1_eq_0.
+  rewrite RMicromega.IQR_0.
+  apply env_equal_Equal in Hsenv_eq_env1.
+  assert (VarMap.Equal senv senv) by reflexivity.
+  eapply env_equal_inv1; eauto.
+  eapply aprhl_conseq
+    with (Q' := fun m1 m2 => denote_env senv m1 m2 /\ sem_expr m1 e = Some (v_bool false)); eauto.
+  eapply aprhl_while0; auto.
+  - intros m1 m2 Hm1m2 Hm1t Hm2t.
+    inv Htyped.
+    rewrite Z.eqb_eq in H_se_gt_0.
+    rewrite H_se_gt_0 in Hse.
+    apply bool_0_same with (senv := senv) (stenv := stenv); auto.
+  - inv Htyped.
+    eapply aprhl_conseq with (P' := denote_env senv); eauto.
+    + intros m1 m2 Hm1t Hm2t [Hm1m2 Hm1e]; auto.
+    + intros m1 m2 Hm1t Hm2t; apply denote_env_equal_inv; auto.
+    + rewrite Heps1_eq_0.
+      rewrite RMicromega.IQR_0.
+      fourier.
+  - intros m1 m2 Hm1t Hm2t [Hm1m2 Hm1e]; auto.
+  - fourier.
+Qed.
 
 Definition cond_inc_pat :=
   (If "?e"
