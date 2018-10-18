@@ -281,4 +281,38 @@ Proof.
   exists v; auto.
 Qed.
 
+Lemma VarMap_remove_same: forall {T} (m : VarMap.t T) x,
+    VarMap.find x m = None
+    -> VarMap.Equal (VarMap.remove x m) m.
+Proof.
+  intros T m x Hfind.
+  unfold VarMap.Equal.
+  intros y.
+  destruct (StringDec.eq_dec x y).
+  - subst. rewrite Hfind.
+    assert (forall v, ~(VarMap.MapsTo y v (VarMap.remove y m))).
+    { apply VarMap_MapsTo_remove_False; auto. }
+    destruct (VarMap.find y (VarMap.remove y m)) eqn:Hy; auto.
+    apply VarMap.find_2 in Hy.
+    apply H in Hy. inversion Hy.
+  - destruct (VarMap.find y m) eqn:Hy.
+    * apply VarMap.find_2 in Hy.
+      apply VarMap.find_1.
+      apply VarMap.remove_2; auto.
+    * destruct (VarMap.find y (VarMap.remove x m)) eqn:Hyx; auto.
+      apply VarMap.find_2 in Hyx.
+      apply VarMap.remove_3 in Hyx.
+      apply VarMap.find_1 in Hyx.
+      rewrite Hyx in Hy.
+      auto.
+Qed.
+
+Lemma VarMap_remove_None: forall {T} (m: VarMap.t T) x,
+    VarMap.find x m = None
+    -> VarMap.find x (VarMap.remove x m) = None.
+Proof.
+  intros T m x Hfind.
+  rewrite VarMap_remove_same; auto.
+Qed.
+
 Hint Resolve VarMap_MapsTo_Uniq.

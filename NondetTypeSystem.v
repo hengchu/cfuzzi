@@ -574,15 +574,327 @@ Definition cond_inc_func : typing_rule_func :=
          k1 <-- try_get_Z k1_ur ;;;
          k2_ur <-- BaseDefinitions.VarMap.find "?k2" uenv ;;;
          k2 <-- try_get_Z k2_ur ;;;
-         let diff := Z.abs (k1 - k2)%Z in
-         match BaseDefinitions.VarMap.find x senv with
-         | None => Some [Build_env_eps senv 0%Q]
-         | Some s => Some [Build_env_eps
-                            (env_update x senv (Some (s + diff)%Z))
-                            0%Q]
-         end)%option
+         if welltyped_cmd_compute
+              stenv
+              (If e then x <- x :+ k1 else x <- x :+ k2 end)%cmd
+         then
+           let diff := Z.abs (k1 - k2)%Z in
+           match BaseDefinitions.VarMap.find x senv with
+           | None => Some [Build_env_eps senv 0%Q]
+           | Some s => Some [Build_env_eps
+                              (env_update x senv (Some (s + diff)%Z))
+                              0%Q]
+           end
+        else None)%option
     )%option.
 Definition cond_inc_rule := (cond_inc_pat, cond_inc_func).
+
+Ltac inv_matches :=
+  repeat match goal with
+         | [ H : cmd_pat_matches ?uenv ?cpat ?c |- _ ]
+           => inv H
+         | [ H : bi_pat_matches ?uenv ?bipat ?bi |- _ ]
+           => inv H
+         | [ H : expr_pat_matches ?uenv ?epat ?e |- _ ]
+           => inv H
+         | [ H : var_pat_matches ?uenv ?vpat ?v |- _ ]
+           => inv H
+         | [ H : Z_pat_matches ?uenv ?zpat ?z |- _ ]
+           => inv H
+         end.
+
+Ltac collapse_dup_MapsTo :=
+  match goal with
+  | [ H1 : VarMap.MapsTo ?x ?e1 ?m,
+      H2 : VarMap.MapsTo ?x ?e2 ?m
+      |- _ ]
+    => let H := fresh H1 "_eq_" H2 in
+      assert (H : e1 = e2) by
+          (eapply VarMap_MapsTo_Uniq; eauto)
+  end.
+
+Lemma cond_inc_rule_sound:
+  typing_rule_sound cond_inc_rule.
+Proof.
+  unfold typing_rule_sound.
+  intros c uenv senv stenv envs Hmatches Henvs.
+  unfold cond_inc_rule in *; simpl in *.
+  unfold cond_inc_pat, cond_inc_func in *.
+  simpl in *.
+  inv_matches.
+  collapse_dup_MapsTo. inv H6_eq_H4. clear H4.
+  collapse_dup_MapsTo. inv H7_eq_H6. clear H6.
+  collapse_dup_MapsTo. inv H3_eq_H7. clear H7.
+  apply VarMap.find_1 in H8.
+  apply VarMap.find_1 in H3.
+  apply VarMap.find_1 in H5.
+  apply VarMap.find_1 in H2.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e)) in Henvs; auto.
+  replace (VarMap.find "?x" uenv) with (Some (uni_variable v)) in Henvs; auto.
+  replace (VarMap.find "?k1" uenv) with (Some (uni_Z z0)) in Henvs; auto.
+  replace (VarMap.find "?k2" uenv) with (Some (uni_Z z)) in Henvs; auto.
+  simpl in Henvs.
+  unfold if_sensitive in Henvs.
+  destruct (sens_expr senv stenv e) as [se|] eqn:Hse;
+    try (solve [inv Henvs] ).
+  destruct (se >? 0)%Z eqn:Hse_gt_0;
+    try (solve [inv Henvs] ).
+  destruct (welltyped_cmd_compute
+              stenv
+              (If e then (v <- v :+ z0) else (v <- v :+ z) end)%cmd)
+           eqn:Htyped;
+    try (solve [inv Henvs] ).
+  rewrite <- welltyped_iff in Htyped.
+  destruct (VarMap.find v senv) eqn:HMapsTo_v_senv.
+  + apply VarMap.find_2 in HMapsTo_v_senv.
+    inv Henvs. clear H8 H3 H5 H2.
+    constructor; auto.
+    simpl.
+    rewrite RMicromega.IQR_0.
+    inv Htyped.
+    apply aprhl_cond_L; auto.
+    * apply aprhl_cond_R; auto.
+      ** eapply aprhl_conseq; eauto.
+         apply aprhl_assign; auto.
+         *** intros m1 m2 Hm1t Hm2t Hm1m2.
+             destruct Hm1m2 as [ [Hm1m2 Hm1e] Hm2e].
+             simpl. unfold env_set, assign_sub_left, assign_sub_right.
+             intros [v2 Hv2]. rewrite Hv2.
+             intros [v1 Hv1]. rewrite Hv1.
+             unfold denote_env in *.
+             intros x d Hxd.
+             simpl in Hv1, Hv2.
+             destruct (VarMap.find v m2) as [v2'|] eqn:Hv2';
+               destruct (VarMap.find v m1) as [v1'|] eqn:Hv1';
+               try (solve [inv Hv2|inv Hv1] ).
+             inv H4; inv H5. inv H6; inv H7. clear H6.
+             apply VarMap.find_2 in Hv1'.
+             apply VarMap.find_2 in Hv2'.
+             assert (welltyped_val v1' t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m1) (x := v); auto. }
+             assert (welltyped_val v2' t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m2) (x := v); auto. }
+             inv H; inv H0. inv Hv1; inv Hv2.
+             destruct (StringDec.eq_dec x v).
+             **** subst.
+                  assert (VarMap.MapsTo
+                            v
+                            (z1 + Z.abs (z0 - z))%Z
+                            (VarMap.add v (z1 + Z.abs (z0 - z))%Z senv)).
+                  { apply VarMap.add_1; auto. }
+                  collapse_dup_MapsTo; subst. clear H.
+                  exists (z2 + z0)%Z, (z3 + z0)%Z, (Z.abs ((z2 + z0) - (z3 + z0)))%Z.
+                  unfold mem_set.
+                  repeat split; try (solve [apply VarMap.add_1; auto] ).
+                  assert (z2 + z0 - (z3 + z0) = z2 - z3)%Z.
+                  { omega. }
+                  rewrite H.
+                  assert (Z.abs (z2 - z3) <= z1)%Z.
+                  {
+                    destruct (Hm1m2 v z1) as [z1' [z2' [zd [Hz1' [Hz2' [Hz1z2' Hzd] ] ] ] ] ]; auto.
+                    simpl in Hz1z2'.
+                    collapse_dup_MapsTo. subst. clear Hz2'.
+                    collapse_dup_MapsTo. subst. clear Hz1'.
+                    simpl in Hz1z2'. inv Hz1z2'; auto.
+                  }
+                  assert (0 <= Z.abs (z0 - z))%Z.
+                  {
+                    apply Z.abs_nonneg.
+                  }
+                  omega.
+             **** apply VarMap.add_3 in Hxd; auto.
+                  destruct (Hm1m2 x d)
+                    as [xv1 [xv2 [xvd [Hxv1 [Hxv2 [Hxv1xv2 Hxvd] ] ] ] ] ]; auto.
+                  exists xv1, xv2, xvd.
+                  unfold mem_set.
+                  repeat split; try (solve [apply VarMap.add_2; auto] ); auto.
+         *** fourier.
+      ** eapply aprhl_conseq; eauto.
+         apply aprhl_assign; auto.
+         *** intros m1 m2 Hm1t Hm2t [ [Hm1m2 Huseless1] Huseless2].
+             clear Huseless1 Huseless2.
+             simpl.
+             unfold denote_env, env_set, assign_sub_left, assign_sub_right in *.
+             intros [v2 Hv2]. rewrite Hv2.
+             intros [v1 Hv1]. rewrite Hv1.
+             intros x d Hxd.
+             simpl in Hv1, Hv2.
+             destruct (VarMap.find v m2) as [m2v|] eqn:Hm2v;
+               destruct (VarMap.find v m1) as [m1v|] eqn:Hm1v;
+               try (solve [inv Hv1 | inv Hv2] ).
+             inv H4. inv H6.
+             apply VarMap.find_2 in Hm1v.
+             apply VarMap.find_2 in Hm2v.
+             assert (Hm1v_int: welltyped_val m1v t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m1) (x := v); auto. }
+             assert (Hm2v_int: welltyped_val m2v t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m2) (x := v); auto. }
+             inv Hm1v_int; inv Hm2v_int.
+             inv Hv2; inv Hv1.
+             destruct (StringDec.eq_dec x v).
+             **** subst.
+                  remember (z1 + Z.abs (z0 - z))%Z as dist.
+                  assert (VarMap.MapsTo v dist (VarMap.add v dist senv)).
+                  { apply VarMap.add_1; auto. }
+                  assert (d = dist).
+                  { collapse_dup_MapsTo; auto. }
+                  subst. clear H.
+                  exists (z2 + z0)%Z, (z3 + z)%Z, (Z.abs ((z2 + z0) - (z3 + z)))%Z.
+                  unfold mem_set.
+                  repeat split; try solve [apply VarMap.add_1; auto].
+                  assert (z2 + z0 - (z3 + z) = (z2 - z3) + (z0 - z))%Z by omega.
+                  rewrite H. clear H.
+                  apply Z.le_trans with (m := (Z.abs (z2 - z3) + Z.abs (z0 - z))%Z); auto.
+                  apply Z.abs_triangle.
+                  assert (Z.abs (z2 - z3) <= z1)%Z.
+                  {
+                    destruct (Hm1m2 v z1) as [vv1 [vv2 [vvd [Hvv1 [Hvv2 [Hvv1vv2 Hvvd] ] ] ] ] ]; auto.
+                    collapse_dup_MapsTo. subst. clear Hvv2.
+                    collapse_dup_MapsTo. subst. clear Hvv1.
+                    simpl in Hvv1vv2. inv Hvv1vv2. auto.
+                  }
+                  omega.
+             **** apply VarMap.add_3 in Hxd; auto.
+                  destruct (Hm1m2 x d)
+                    as [xv1 [xv2 [xvd [Hxv1 [Hxv2 [Hxv1xv2 Hxvd] ] ] ] ] ]; auto.
+                  exists xv1, xv2, xvd.
+                  unfold mem_set.
+                  repeat split;
+                    try solve [apply VarMap.add_2; auto]; auto.
+         *** fourier.
+    * apply aprhl_cond_R; auto.
+      ** eapply aprhl_conseq; eauto.
+         apply aprhl_assign; auto.
+         *** intros m1 m2 Hm1t Hm2t [ [Hm1m2 Huseless1] Huseless2].
+             clear Huseless1 Huseless2.
+             simpl.
+             unfold denote_env, env_set, assign_sub_left, assign_sub_right in *.
+             intros [v2 Hv2]. rewrite Hv2.
+             intros [v1 Hv1]. rewrite Hv1.
+             intros x d Hxd.
+             simpl in Hv1, Hv2.
+             destruct (VarMap.find v m2) as [m2v|] eqn:Hm2v;
+               destruct (VarMap.find v m1) as [m1v|] eqn:Hm1v;
+               try (solve [inv Hv1 | inv Hv2] ).
+             inv H4. inv H6.
+             apply VarMap.find_2 in Hm1v.
+             apply VarMap.find_2 in Hm2v.
+             assert (Hm1v_int: welltyped_val m1v t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m1) (x := v); auto. }
+             assert (Hm2v_int: welltyped_val m2v t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m2) (x := v); auto. }
+             inv Hm1v_int; inv Hm2v_int.
+             inv Hv2; inv Hv1.
+             destruct (StringDec.eq_dec x v).
+             **** subst.
+                  remember (z1 + Z.abs (z0 - z))%Z as dist.
+                  assert (VarMap.MapsTo v dist (VarMap.add v dist senv)).
+                  { apply VarMap.add_1; auto. }
+                  assert (d = dist).
+                  { collapse_dup_MapsTo; auto. }
+                  subst. clear H.
+                  exists (z2 + z)%Z, (z3 + z0)%Z, (Z.abs ((z2 + z) - (z3 + z0)))%Z.
+                  unfold mem_set.
+                  repeat split; try solve [apply VarMap.add_1; auto].
+                  assert (z2 + z - (z3 + z0) = (z2 - z3) + (z - z0))%Z by omega.
+                  rewrite H. clear H.
+                  apply Z.le_trans with (m := (Z.abs (z2 - z3) + Z.abs (z - z0))%Z); auto.
+                  apply Z.abs_triangle.
+                  assert (Z.abs (z2 - z3) <= z1)%Z.
+                  {
+                    destruct (Hm1m2 v z1) as [vv1 [vv2 [vvd [Hvv1 [Hvv2 [Hvv1vv2 Hvvd] ] ] ] ] ]; auto.
+                    collapse_dup_MapsTo. subst. clear Hvv2.
+                    collapse_dup_MapsTo. subst. clear Hvv1.
+                    simpl in Hvv1vv2. inv Hvv1vv2. auto.
+                  }
+                  assert (z - z0 = -z0 + z)%Z by omega.
+                  assert (-z0 + z = - (z0 - z))%Z by omega.
+                  rewrite H0; rewrite H1. clear H0 H1.
+                  rewrite Z.abs_opp.
+                  omega.
+             **** apply VarMap.add_3 in Hxd; auto.
+                  destruct (Hm1m2 x d)
+                    as [xv1 [xv2 [xvd [Hxv1 [Hxv2 [Hxv1xv2 Hxvd] ] ] ] ] ]; auto.
+                  exists xv1, xv2, xvd.
+                  unfold mem_set.
+                  repeat split;
+                    try solve [apply VarMap.add_2; auto]; auto.
+         *** fourier.
+      ** eapply aprhl_conseq; eauto.
+         apply aprhl_assign; auto.
+         *** intros m1 m2 Hm1t Hm2t Hm1m2.
+             destruct Hm1m2 as [ [Hm1m2 Hm1e] Hm2e].
+             simpl. unfold env_set, assign_sub_left, assign_sub_right.
+             intros [v2 Hv2]. rewrite Hv2.
+             intros [v1 Hv1]. rewrite Hv1.
+             unfold denote_env in *.
+             intros x d Hxd.
+             simpl in Hv1, Hv2.
+             destruct (VarMap.find v m2) as [v2'|] eqn:Hv2';
+               destruct (VarMap.find v m1) as [v1'|] eqn:Hv1';
+               try (solve [inv Hv2|inv Hv1] ).
+             inv H4; inv H5. inv H6; inv H7. clear H6.
+             apply VarMap.find_2 in Hv1'.
+             apply VarMap.find_2 in Hv2'.
+             assert (welltyped_val v1' t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m1) (x := v); auto. }
+             assert (welltyped_val v2' t_int).
+             { apply welltyped_memory_val with (env := stenv) (m := m2) (x := v); auto. }
+             inv H; inv H0. inv Hv1; inv Hv2.
+             destruct (StringDec.eq_dec x v).
+             **** subst.
+                  assert (VarMap.MapsTo
+                            v
+                            (z1 + Z.abs (z0 - z))%Z
+                            (VarMap.add v (z1 + Z.abs (z0 - z))%Z senv)).
+                  { apply VarMap.add_1; auto. }
+                  collapse_dup_MapsTo; subst. clear H.
+                  exists (z2 + z)%Z, (z3 + z)%Z, (Z.abs ((z2 + z) - (z3 + z)))%Z.
+                  unfold mem_set.
+                  repeat split; try (solve [apply VarMap.add_1; auto] ).
+                  assert (z2 + z - (z3 + z) = z2 - z3)%Z by omega.
+                  rewrite H. clear H.
+                  assert (Z.abs (z2 - z3) <= z1)%Z.
+                  {
+                    destruct (Hm1m2 v z1) as [z1' [z2' [zd [Hz1' [Hz2' [Hz1z2' Hzd] ] ] ] ] ]; auto.
+                    simpl in Hz1z2'.
+                    collapse_dup_MapsTo. subst. clear Hz2'.
+                    collapse_dup_MapsTo. subst. clear Hz1'.
+                    simpl in Hz1z2'. inv Hz1z2'; auto.
+                  }
+                  assert (0 <= Z.abs (z0 - z))%Z.
+                  {
+                    apply Z.abs_nonneg.
+                  }
+                  omega.
+             **** apply VarMap.add_3 in Hxd; auto.
+                  destruct (Hm1m2 x d)
+                    as [xv1 [xv2 [xvd [Hxv1 [Hxv2 [Hxv1xv2 Hxvd] ] ] ] ] ]; auto.
+                  exists xv1, xv2, xvd.
+                  unfold mem_set.
+                  repeat split; try (solve [apply VarMap.add_2; auto] ); auto.
+         *** fourier.
+  + inv Henvs.
+    constructor; auto.
+    simpl.
+    rewrite RMicromega.IQR_0.
+    eapply aprhl_conseq; auto.
+    apply mvs_inf_sound; auto.
+    * intros m1 m2 Hm1t Hm2t Hm1m2. apply Hm1m2.
+    * intros m1 m2 Hm1t Hm2t Hm1m2.
+      simpl in Hm1m2. unfold env_del in Hm1m2.
+      assert (VarMap.Equal senv (VarMap.remove v (VarMap.remove v senv))).
+      {
+        rewrite VarMap_remove_same; auto.
+        rewrite VarMap_remove_same; auto.
+        reflexivity.
+        apply VarMap_remove_None; auto.
+      }
+      rewrite denote_env_equal_inv.
+      apply Hm1m2.
+      auto.
+    * fourier.
+Qed.
 
 Definition simple_arr_map_pat :=
   ("?idx" <- 0%Z ;;

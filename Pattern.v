@@ -523,39 +523,39 @@ Inductive expr_pat_matches : uni_env -> expr_pat -> expr -> Prop :=
     -> expr_pat_matches uenv (epat_var vp) (e_var v)
 | epat_add_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_add epl epr) (e_add el er)
 | epat_minus_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_minus epl epr) (e_minus el er)
 | epat_mult_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_mult epl epr) (e_mult el er)
 | epat_div_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_div epl epr) (e_div el er)
 | epat_lt_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_lt epl epr) (e_lt el er)
 | epat_eq_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_eq epl epr) (e_eq el er)
 | epat_and_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_and epl epr) (e_and el er)
 | epat_or_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_or epl epr) (e_or el er)
 | epat_index_matches: forall uenv epl epr el er,
     expr_pat_matches uenv epl el
-    -> expr_pat_matches uenv epl er
+    -> expr_pat_matches uenv epr er
     -> expr_pat_matches uenv (epat_index epl epr) (e_index el er)
 | epat_length_matches: forall uenv ep e,
     expr_pat_matches uenv ep e

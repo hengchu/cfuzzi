@@ -258,6 +258,26 @@ Parameter aprhl_while_R:
     env2 ⊕ env2 |- i_skip ~_(0) (While e2 do c2 end)
     : P ==> (fun m1 m2 => P m1 m2 /\ sem_expr m2 e2 = Some (v_bool false)).
 
+Parameter aprhl_cond_L:
+  forall (env1 env2: st_env) e1 c1t c1f c2 eps (P Q: memory_relation),
+    welltyped env1 (If e1 then c1t else c1f end)%cmd ->
+    welltyped env2 c2 ->
+    (env1 ⊕ env2 |- c1t ~_(eps) c2 : (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = Some (v_bool true))
+                                      ==> Q)%triple ->
+    (env1 ⊕ env2 |- c1f ~_(eps) c2 : (fun m1 m2 => P m1 m2 /\ sem_expr m1 e1 = Some (v_bool false))
+                                      ==> Q)%triple ->
+    (env1 ⊕ env2 |- (If e1 then c1t else c1f end) ~_(eps) c2 : P ==> Q)%triple.
+
+Parameter aprhl_cond_R:
+  forall (env1 env2: st_env) c1 e2 c2t c2f eps (P Q: memory_relation),
+    welltyped env1 c1 ->
+    welltyped env2 (If e2 then c2t else c2f end) ->
+    (env1 ⊕ env2 |- c1 ~_(eps) c2t : (fun m1 m2 => P m1 m2 /\ sem_expr m2 e2 = Some (v_bool true))
+                                      ==> Q)%triple ->
+    (env1 ⊕ env2 |- c1 ~_(eps) c2f : (fun m1 m2 => P m1 m2 /\ sem_expr m2 e2 = Some (v_bool false))
+                                      ==> Q)%triple ->
+    (env1 ⊕ env2 |- c1 ~_(eps) (If e2 then c2t else c2f end) : P ==> Q)%triple.
+
 Parameter aprhl_equiv:
   forall (env1 env2: st_env) c1 c1' c2 c2' eps (P Q : memory_relation),
     welltyped env1 c1 ->
