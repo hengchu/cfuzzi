@@ -130,6 +130,104 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
   Notation "P 'L([' x |-> a '])'" := (assign_sub_left P x a) (at level 10).
   Notation "P 'R([' x |-> a '])'" := (assign_sub_right P x a) (at level 10).
 
+  Definition some_int (m: memory) (e: expr) :=
+    exists z, sem_expr m e = Some (v_int z).
+
+  Definition some_arr_var (m: memory) (x: var) :=
+    exists t arr, VarMap.find x m = Some (v_arr (t_arr t) arr).
+
+  Definition assign_len_sub_left
+             (P: memory_relation)
+             (x: var)
+             (e: expr): memory_relation :=
+    fun m1 =>
+      fun m2 =>
+        some_int m1 e ->
+        some_arr_var m1 x ->
+        match sem_expr m1 e,
+              VarMap.find x m1 with
+        | Some (v_int z), Some (v_arr (t_arr t) arr) =>
+          match val_arr_update_length t arr z with
+          | Some varr'
+            => P (mem_set x (v_arr (t_arr t) varr') m1) m2
+          | None
+            => False
+          end
+        | _, _ => False
+        end.
+
+  Definition assign_len_sub_right
+             (P: memory_relation)
+             (x: var)
+             (e: expr): memory_relation :=
+    fun m1 =>
+      fun m2 =>
+        some_int m2 e ->
+        some_arr_var m2 x ->
+        match sem_expr m2 e,
+              VarMap.find x m2 with
+        | Some (v_int z), Some (v_arr (t_arr t) arr) =>
+          match val_arr_update_length t arr z with
+          | Some varr'
+            => P m1 (mem_set x (v_arr (t_arr t) varr') m2)
+          | None
+            => False
+          end
+        | _, _ => False
+        end.
+
+  Notation "P 'L([' 'len(' x ')' |-> a '])'" := (assign_len_sub_left P x a) (at level 10).
+  Notation "P 'R([' 'len(' x ')' |-> a '])'" := (assign_len_sub_right P x a) (at level 10).
+
+  Definition assign_index_sub_left
+             (P: memory_relation)
+             (x: var)
+             (idx e: expr): memory_relation :=
+    fun m1 =>
+      fun m2 =>
+        some_int m1 idx ->
+        some_arr_var m1 x ->
+        some_value m1 e ->
+        match sem_expr m1 idx,
+              sem_expr m1 e,
+              VarMap.find x m1 with
+        | Some (v_int z),
+          Some v,
+          Some (v_arr t arr) =>
+          match val_arr_update arr z v with
+          | Some varr' =>
+            P (mem_set x (v_arr t varr') m1) m2
+          | _ => False
+          end
+        | _, _, _ => False
+        end.
+
+    Definition assign_index_sub_right
+             (P: memory_relation)
+             (x: var)
+             (idx e: expr): memory_relation :=
+    fun m1 =>
+      fun m2 =>
+        some_int m2 idx ->
+        some_arr_var m2 x ->
+        some_value m2 e ->
+        match sem_expr m2 idx,
+              sem_expr m2 e,
+              VarMap.find x m2 with
+        | Some (v_int z),
+          Some v,
+          Some (v_arr t arr) =>
+          match val_arr_update arr z v with
+          | Some varr' =>
+            P m1 (mem_set x (v_arr t varr') m2)
+          | _ => False
+          end
+        | _, _, _ => False
+        end.
+
+  Notation "P 'L([' 'at(' x ',' idx ')' |-> a '])'" := (assign_index_sub_left P x idx a) (at level 10).
+  Notation "P 'R([' 'at(' x ',' idx ')' |-> a '])'" := (assign_index_sub_right P x idx a) (at level 10).
+
   Parameter aprhl_skip:
     forall (env1 env2: st_env) P,
       env1 ⊕ env2 |- i_skip ~_(0%R) i_skip: P ==> P.
@@ -139,8 +237,21 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
       welltyped env1 (x1 <- e1)%cmd ->
       welltyped env2 (x2 <- e2)%cmd ->
       env1 ⊕ env2 |- (x1 <- e1) ~_(0%R) (x2 <- e2) :
-        (fun m1 m2 => P L([x1 |-> e1]) R([x2 |-> e2]) m1 m2)
-          ==> P.
+        P L([x1 |-> e1]) R([x2 |-> e2]) ==> P.
+
+  Parameter aprhl_len_assign:
+    forall (env1 env2: st_env) (x1 x2: var) (e1 e2: expr) P,
+      welltyped env1 (len(x1) <- e1)%cmd ->
+      welltyped env2 (len(x2) <- e2)%cmd ->
+      env1 ⊕ env2 |- (len(x1) <- e1) ~_(0%R) (len(x2) <- e2) :
+       P L([len(x1) |-> e1]) R([len(x2) |-> e2]) ==> P.
+
+  Parameter aprhl_index_assign:
+    forall (env1 env2: st_env) (x1 x2: var) (idx1 idx2: expr) (e1 e2: expr) P,
+      welltyped env1 (at(x1, idx1) <- e1)%cmd ->
+      welltyped env2 (at(x2, idx2) <- e2)%cmd ->
+      env1 ⊕ env2 |- (at(x1, idx1) <- e1) ~_(0%R) (at(x2, idx2) <- e2) :
+        P L([at(x1, idx1) |-> e1]) R([at(x2, idx2) |-> e2]) ==> P.
 
   Parameter aprhl_seq:
     forall (env env': st_env) (c1 c1' c2 c2': cmd) (P Q S : memory_relation) (eps eps' : R),
