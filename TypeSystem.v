@@ -206,6 +206,9 @@ Section Metrics.
     | _, _ => None
     end.
 
+  Definition val_subarr_metric_f vs1 vs2 len :=
+    lift_option2 val_arr_metric_f (val_arr_subarr vs1 len) (val_arr_subarr vs2 len).
+
   Eval compute in (val_metric_f 1 2)%Z.
   Eval compute in (val_metric_f (v_arr t_int (val_arr_from_list [v_int 1; v_int 2]%Z))
                                 (v_arr t_int (val_arr_from_list [v_int 2]%Z)))%list.
@@ -381,6 +384,34 @@ Definition denote_env (e : env) : memory_relation :=
                                  BaseDefinitions.VarMap.MapsTo x v2 m2 /\
                                  val_metric v1 v2 = Some d' /\ (d' <= d)%Z.
 
+Lemma denote_env_update:
+  forall senv y v1 v2 d m1 m2,
+    val_metric v1 v2 = Some d
+    -> denote_env senv m1 m2
+    -> denote_env (env_set y senv d) (mem_set y v1 m1) (mem_set y v2 m2).
+Proof.
+  intros senv y v1 v2 d m1 m2 Hv1v2 Hm1m2.
+  unfold denote_env in *.
+  intros x dx Hxd.
+  unfold env_set, mem_set in *.
+  destruct (var_eqdec x y).
+  - subst.
+    assert (VarMap.MapsTo y d (VarMap.add y d senv)).
+    { apply VarMap.add_1; auto. }
+    assert (d = dx) by (eapply VarMap_MapsTo_Uniq; eauto).
+    subst. clear H.
+    exists v1, v2, dx.
+    repeat split;
+      try (solve [apply VarMap.add_1; auto] ); auto.
+    omega.
+  - apply VarMap.add_3 in Hxd; auto.
+    destruct (Hm1m2 x dx)
+      as [xv1 [xv2 [xvd [Hxv1 [Hxv2 [Hxv1v2 Hxvd] ] ] ] ] ]; auto.
+    exists xv1, xv2, xvd.
+    repeat split; auto;
+      try (solve [apply VarMap.add_2; auto] ).
+Qed.
+
 Definition comb_sens (s1 s2 : option Z) :=
   match s1, s2 with
   | Some s1, Some s2 =>
@@ -413,7 +444,7 @@ Fixpoint sens_expr (ctx: env) (tctx: st_env) (e: expr) : option Z :=
   | e_add e1 e2 => lift_option2 Z.add (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
   | e_minus e1 e2 => lift_option2 Z.add (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
   | e_mult (e_lit z) e2 => lift_option (Z.mul z) (sens_expr ctx tctx e2)
-  | e_mult e1 (e_lit z) => lift_option (fun d => Z.mul d z) (sens_expr ctx tctx e1)
+  | e_mult e1 (e_lit z) => lift_option (Z.mul z) (sens_expr ctx tctx e1)
   | e_mult e1 e2 => comb_sens (sens_expr ctx tctx e1) (sens_expr ctx tctx e2)
   | e_div e1 (e_lit z) => lift_option
                            (fun d =>
@@ -1218,6 +1249,17 @@ Proof.
     exists v1, v2, vd.
     repeat split; auto.
 Qed.
+
+(* If e only has x as its free variable, then its sensitivity is a multiple of
+   x's sensitivity *)
+Lemma singleton_fv_e_sens:
+  forall x e t env stenv k,
+    VarSet.Equal (fvs e) (VarSet.singleton x)
+    -> welltyped_expr stenv e t
+    -> sens_expr (env_update x env (Some 1%Z)) stenv e = Some k
+    -> sens_expr env stenv e = lift_option (Z.mul k) (env_get x env).
+Proof.
+Admitted.
 
 Lemma mvs_inf_sound:
   forall senv stenv c,

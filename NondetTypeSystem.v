@@ -906,7 +906,20 @@ Definition simple_arr_map_pat :=
      "?t" <- (epv "?arr_in") !! (epv "?idx") ;;
      at("?arr_out", epv "?idx") <- "?e" ;;
      "?idx" <- epv "?idx" :+ epl 1%Z
-   end)%pat.
+   end
+  )%pat.
+
+Definition guard {P Q} (b : {P} + {Q}) : option Datatypes.unit :=
+  if b then Some tt else None.
+
+Definition guardb (b: bool): option Datatypes.unit :=
+  if b then Some tt else None.
+
+Definition is_array (t : tau) :=
+  match t with
+  | t_arr _ => true
+  | _ => false
+  end.
 
 Definition simple_arr_map_func: typing_rule_func :=
   fun uenv senv stenv =>
@@ -924,18 +937,38 @@ Definition simple_arr_map_func: typing_rule_func :=
          then
            arr_in_ur <-- BaseDefinitions.VarMap.find "?arr_in" uenv ;;;
            arr_in <-- try_get_variable arr_in_ur ;;;
+           t_arr_in <-- VarMap.find arr_in stenv ;;;
+           _ <-- guardb (is_array t_arr_in) ;;;
            arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
            arr_out <-- try_get_variable arr_out_ur ;;;
-           let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
-           let s_e := sens_expr senv' stenv e in
+           let prog := (
+                 idx <- 0%Z ;;
+                 len(arr_out) <- len(arr_in) ;;
+                 While (idx :< len(arr_in))%expr do
+                   t <- arr_in !! idx ;;
+                   at(arr_out, idx) <- e ;;
+                   idx <- idx :+ 1%Z
+                 end
+               )%cmd in
+           _ <-- guardb (welltyped_cmd_compute stenv prog) ;;;
+           arr_in_sens <-- env_get arr_in senv ;;;
+           s_e <-- sens_expr (env_set t senv 1%Z) stenv e ;;;
+           let s_out := lift_option (Z.mul s_e) (env_get arr_in senv) in
+           let senv' := env_update t (env_update arr_out senv s_out) s_out in
            Some [Build_env_eps
-                   (env_update arr_out senv' s_e)
+                   senv'
                    0%Q]
          else
            None
        )%option
     )%option.
 Definition simple_arr_map_rule := (simple_arr_map_pat, simple_arr_map_func).
+
+Ltac step_envs e H :=
+  let He := fresh in
+  destruct e eqn:He;
+  try (solve [inv H] );
+  simpl in H.
 
 Lemma simple_arr_map_rule_sound:
   typing_rule_sound simple_arr_map_rule.
@@ -966,47 +999,52 @@ Proof.
   replace (VarMap.find "?arr_out" uenv) with (Some (uni_variable v0)) in Henvs; auto.
   replace (VarMap.find "?e" uenv) with (Some (uni_expr e4)) in Henvs; auto.
   simpl in Henvs.
-  destruct (VarMap.find v senv) eqn:Hv;
-    try (solve [inv Henvs] ).
-  simpl in Henvs.
-  destruct (z =? 0)%Z eqn:Hz_eq_0;
-    try (solve [inv Henvs] ).
-  simpl in Henvs.
-  destruct (VarSet.equal (fvs e4) (VarSet.singleton v1)) eqn:He_fvs;
-    try (solve [inv Henvs] ).
+  step_envs (VarMap.find v senv) Henvs.
+  step_envs (z =? 0)%Z Henvs.
+  step_envs (VarSet.equal (fvs e4) (VarSet.singleton v1)) Henvs.
+  step_envs (VarMap.find v7 stenv) Henvs.
+  step_envs (is_array t) Henvs.
+  remember (v <- 0%Z ;;
+            len( v0)<- len(v7) ;;
+            While (v :< len(v7) )%expr do
+              (v1 <- v7 !! v);;
+              (at( v0, v)<- e4);;
+              v <- v :+ 1%Z
+            end)%cmd as prog.
+  step_envs (welltyped_cmd_compute stenv prog) Henvs.
+  step_envs (env_get v7 senv) Henvs.
+  remember (env_set v1 senv 1%Z) as senv'.
+  step_envs (sens_expr senv' stenv e4) Henvs.
   inv Henvs.
   constructor; auto.
   simpl.
   rewrite RMicromega.IQR_0.
   replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
-  eapply aprhl_seq; eauto.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - eapply aprhl_conseq; auto.
-    admit.
-    admit.
-    apply aprhl_assign; auto.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-  - eapply aprhl_conseq; auto.
-    admit.
-    admit.
-    eapply aprhl_seq; auto.
-    admit.
-    admit.
-    admit.
-    admit.
-    admit.
-    eapply aprhl_while; auto.
-    admit.
-    admit.
-    admit.
-    admit.
+  rewrite <- welltyped_iff in H7.
+  eapply aprhl_seq; auto;
+    try (solve [inv H7; auto] ).
+  eapply aprhl_conseq; auto;
+    try (solve [inv H7; auto] ).
+  apply aprhl_assign; auto;
+    try (solve [inv H7; auto] ).
+  - (* Here we instantiate the precondition before entering the loop *)
+    intros m1 m2 Hm1t Hm2t Hm1m2.
+    simpl. unfold assign_sub_left, assign_sub_right.
+    intros [v_idx2 Hv_idx2]. inv Hv_idx2. simpl.
+    intros [v_idx1 Hv_idx1]. inv Hv_idx1. simpl.
+    unfold mem_set in *.
+    instantiate
+      (1 := fun m1 m2 => VarMap.MapsTo v (v_int 0%Z) m1
+                      /\ VarMap.MapsTo v (v_int 0%Z) m2
+                      /\ denote_env (env_set v senv 0%Z) m1 m2).
+    simpl.
+    repeat split;
+      try (solve [apply VarMap.add_1; auto] ).
+    apply denote_env_update; auto.
+  - intros m1 m2 Hm1 Hm2 Hm1m2.
+    apply Hm1m2.
+  - fourier.
+  -
 
 Definition is_None (o : option cmd) :=
   match o with
@@ -1070,7 +1108,7 @@ Definition arr_map_prog :=
     len("out") <- len("in") ;;
     While ("i" :< len("in"))%expr do
       "t" <- ("in" !! "i")%expr ;;
-      at("out", "i") <- ("t" :* 10%Z)%expr ;;
+      at("out", "i") <- ("t" :+ "t" :* 2%Z)%expr ;;
       "i" <- ("i" :+ 1%Z)%expr
     end
   )%cmd.

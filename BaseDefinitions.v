@@ -151,6 +151,24 @@ Fixpoint val_arr_update_nat (vs: val_arr) (idx: nat) (v: val) : option val_arr :
     end
   end.
 
+Fixpoint val_arr_subarr_nat (vs: val_arr) (len: nat) : option val_arr :=
+  match vs, len with
+  | _, O => Some v_nil
+  | v_cons v vs, S n =>
+    match val_arr_subarr_nat vs n with
+    | Some vs' => Some (v_cons v vs')
+    | None => None
+    end
+  | v_nil, S _ => None
+  end.
+
+Fixpoint val_arr_subarr (vs: val_arr) (len: Z) : option val_arr :=
+  match len with
+  | Z0 => val_arr_subarr_nat vs O
+  | Zpos p => val_arr_subarr_nat vs (Pos.to_nat p)
+  | Zneg _ => None
+  end.
+
 Fixpoint val_arr_to_list (vs : val_arr) : list val :=
   match vs with
   | v_nil => []
@@ -205,6 +223,18 @@ Definition var_eqdec := StringDec.eq_dec.
 Module VarMap := FMapWeakList.Make(StringDec).
 Module VarSet := FSetWeakList.Make(StringDec).
 
+Definition VarMap_includes_compute
+           {T} (eq: T -> T -> bool) (m1 m2:VarMap.t T) :=
+  VarMap.fold (fun x v is_equal =>
+                 match VarMap.find x m2 with
+                 | Some v2 => is_equal && (eq v v2)
+                 | _ => false
+                 end
+              ) m1 true.
+
+Definition varmap_from_list {A: Type} (xs: list (var * A)%type) : VarMap.t A :=
+  List.fold_right (fun xa m => VarMap.add (fst xa) (snd xa) m) (@VarMap.empty A) xs.
+
 Lemma VarMap_Equal_dec : forall {T}
                            (H: forall x1 x2: T, {x1 = x2} + {x1 <> x2})
                            (m1 m2: VarMap.t T),
@@ -252,9 +282,6 @@ Coercion v_bool : bool >-> val.
 
 Definition str_to_var : string -> var := fun x => x.
 Coercion str_to_var : string >-> var.
-
-Definition varmap_from_list {A: Type} (xs: list (var * A)%type) : VarMap.t A :=
-  List.fold_right (fun xa m => VarMap.add (fst xa) (snd xa) m) (@VarMap.empty A) xs.
 
 Lemma VarMap_MapsTo_Uniq: forall {T} m x (v1 v2 : T),
     VarMap.MapsTo x v1 m -> VarMap.MapsTo x v2 m
