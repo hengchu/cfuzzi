@@ -910,7 +910,7 @@ Definition simple_arr_map_func: typing_rule_func :=
     (idx_ur <-- BaseDefinitions.VarMap.find "?idx" uenv ;;;
      idx <-- try_get_variable idx_ur ;;;
      s_idx <-- BaseDefinitions.VarMap.find idx senv ;;;
-     if (s_idx >? 0)%Z
+     if (negb (s_idx =? 0))%Z
      then None
      else (
          t_ur <-- BaseDefinitions.VarMap.find "?t" uenv ;;;
@@ -934,6 +934,77 @@ Definition simple_arr_map_func: typing_rule_func :=
        )%option
     )%option.
 Definition simple_arr_map_rule := (simple_arr_map_pat, simple_arr_map_func).
+
+Lemma simple_arr_map_rule_sound:
+  typing_rule_sound simple_arr_map_rule.
+Proof.
+  unfold typing_rule_sound.
+  intros c uenv senv stenv envs.
+  intros Hmatches Henvs.
+  unfold simple_arr_map_rule in *.
+  simpl in *.
+  unfold simple_arr_map_func, simple_arr_map_pat in *.
+  inv_matches.
+  collapse_dup_MapsTo. inv H7_eq_H3. clear H3.
+  collapse_dup_MapsTo. inv H6_eq_H5. clear H5.
+  collapse_dup_MapsTo. inv H13_eq_H7. clear H7.
+  collapse_dup_MapsTo. inv H12_eq_H13. clear H13.
+  collapse_dup_MapsTo. inv H14_eq_H12. clear H12.
+  collapse_dup_MapsTo. inv H16_eq_H14. clear H14.
+  collapse_dup_MapsTo. inv H10_eq_H11. clear H11.
+  collapse_dup_MapsTo. inv H4_eq_H10. clear H10.
+  apply VarMap.find_1 in H2.
+  apply VarMap.find_1 in H16.
+  apply VarMap.find_1 in H4.
+  apply VarMap.find_1 in H6.
+  apply VarMap.find_1 in H9.
+  replace (VarMap.find "?idx" uenv) with (Some (uni_variable v)) in Henvs; auto.
+  replace (VarMap.find "?t" uenv) with (Some (uni_variable v1)) in Henvs; auto.
+  replace (VarMap.find "?arr_in" uenv) with (Some (uni_variable v7)) in Henvs; auto.
+  replace (VarMap.find "?arr_out" uenv) with (Some (uni_variable v0)) in Henvs; auto.
+  replace (VarMap.find "?e" uenv) with (Some (uni_expr e4)) in Henvs; auto.
+  simpl in Henvs.
+  destruct (VarMap.find v senv) eqn:Hv;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  destruct (z =? 0)%Z eqn:Hz_eq_0;
+    try (solve [inv Henvs] ).
+  simpl in Henvs.
+  destruct (List.remove var_eqdec v1 (fvs e4)) eqn:He_fvs;
+    try (solve [inv Henvs] ).
+  inv Henvs.
+  constructor; auto.
+  simpl.
+  rewrite RMicromega.IQR_0.
+  replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
+  eapply aprhl_seq; eauto.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - eapply aprhl_conseq; auto.
+    admit.
+    admit.
+    apply aprhl_assign; auto.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+  - eapply aprhl_conseq; auto.
+    admit.
+    admit.
+    eapply aprhl_seq; auto.
+    admit.
+    admit.
+    admit.
+    admit.
+    admit.
+    eapply aprhl_while; auto.
+    admit.
+    admit.
+    admit.
+    admit.
 
 Definition is_None (o : option cmd) :=
   match o with
