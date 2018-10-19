@@ -271,11 +271,11 @@ Definition cond_sens_func : typing_rule_func :=
     c2 <-- try_get_cmd c2_ur ;;;
     if welltyped_cmd_compute stenv (If e then c1 else c2 end)%cmd
     then
-      let modified_vars := (mvs c1 ++ mvs c2)%list in
+      let modified_vars := VarSet.union (mvs c1) (mvs c2)%list in
       if_sensitive
         senv stenv e
         (Some [Build_env_eps
-                 (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+                 (VarSet.fold (fun x senv => env_update x senv None) modified_vars senv)
                  0%Q]%list)
     else None
   )%option.
@@ -327,7 +327,7 @@ Definition while_sens_func : typing_rule_func :=
        if_sensitive
          senv stenv e
          (Some [Build_env_eps
-                  (List.fold_right (fun x senv => env_update x senv None) senv modified_vars)
+                  (VarSet.fold (fun x senv => env_update x senv None) modified_vars senv)
                   0%Q]%list)
      else None
   )%option.
@@ -883,15 +883,18 @@ Proof.
     * intros m1 m2 Hm1t Hm2t Hm1m2. apply Hm1m2.
     * intros m1 m2 Hm1t Hm2t Hm1m2.
       simpl in Hm1m2. unfold env_del in Hm1m2.
-      assert (VarMap.Equal senv (VarMap.remove v (VarMap.remove v senv))).
+      assert (VarMap.Equal senv (VarMap.remove v senv)).
       {
         rewrite VarMap_remove_same; auto.
-        rewrite VarMap_remove_same; auto.
         reflexivity.
-        apply VarMap_remove_None; auto.
       }
       rewrite denote_env_equal_inv.
       apply Hm1m2.
+      rewrite VarSet.fold_1.
+      simpl. unfold Basics.flip. simpl.
+      destruct (VarSet.MF.eq_dec v v) as [Hvv|Hvv];
+        try (solve [exfalso; apply Hvv; auto] ).
+      simpl.
       auto.
     * fourier.
 Qed.
@@ -917,20 +920,19 @@ Definition simple_arr_map_func: typing_rule_func :=
          t <-- try_get_variable t_ur ;;;
          e_ur <-- BaseDefinitions.VarMap.find "?e" uenv ;;;
          e <-- try_get_expr e_ur ;;;
-         match List.remove var_eqdec t (fvs e) with
-         | _ :: _ => None
-         | [] => (
-             arr_in_ur <-- BaseDefinitions.VarMap.find "?arr_in" uenv ;;;
-             arr_in <-- try_get_variable arr_in_ur ;;;
-             arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
-             arr_out <-- try_get_variable arr_out_ur ;;;
-             let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
-             let s_e := sens_expr senv' stenv e in
-             Some [Build_env_eps
-                     (env_update arr_out senv' s_e)
-                     0%Q]
-           )%option
-         end
+         if VarSet.equal (fvs e) (VarSet.singleton t)
+         then
+           arr_in_ur <-- BaseDefinitions.VarMap.find "?arr_in" uenv ;;;
+           arr_in <-- try_get_variable arr_in_ur ;;;
+           arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
+           arr_out <-- try_get_variable arr_out_ur ;;;
+           let senv' := env_update t senv (BaseDefinitions.VarMap.find arr_in senv) in
+           let s_e := sens_expr senv' stenv e in
+           Some [Build_env_eps
+                   (env_update arr_out senv' s_e)
+                   0%Q]
+         else
+           None
        )%option
     )%option.
 Definition simple_arr_map_rule := (simple_arr_map_pat, simple_arr_map_func).
@@ -970,7 +972,7 @@ Proof.
   destruct (z =? 0)%Z eqn:Hz_eq_0;
     try (solve [inv Henvs] ).
   simpl in Henvs.
-  destruct (List.remove var_eqdec v1 (fvs e4)) eqn:He_fvs;
+  destruct (VarSet.equal (fvs e4) (VarSet.singleton v1)) eqn:He_fvs;
     try (solve [inv Henvs] ).
   inv Henvs.
   constructor; auto.

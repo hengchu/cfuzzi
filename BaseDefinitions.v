@@ -3,6 +3,7 @@ Require Export Coq.Lists.List.
 Require Export Coq.Strings.String.
 Require Export Program.
 Require Export FMapWeakList.
+Require Export FSetWeakList.
 Require Export Coq.FSets.FMapInterface.
 
 Inductive tau :=
@@ -201,7 +202,8 @@ End StringDec.
 
 Definition var_eqdec := StringDec.eq_dec.
 
-Module VarMap := Make(StringDec).
+Module VarMap := FMapWeakList.Make(StringDec).
+Module VarSet := FSetWeakList.Make(StringDec).
 
 Lemma VarMap_Equal_dec : forall {T}
                            (H: forall x1 x2: T, {x1 = x2} + {x1 <> x2})
@@ -244,7 +246,6 @@ Add Parametric Relation T : (VarMap.t T) (@VarMap.Equal T)
     symmetry proved by VarMap_Equal_Sym
     transitivity proved by VarMap_Equal_Trans
       as VarMap_Equal_Equiv.
-
 
 Coercion v_int : Z >-> val.
 Coercion v_bool : bool >-> val.

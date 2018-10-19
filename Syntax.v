@@ -18,19 +18,19 @@ Inductive expr : Type :=
 | e_index : expr -> expr -> expr
 | e_length : expr -> expr.
 
-Fixpoint fvs (e: expr) : list var :=
+Fixpoint fvs (e: expr) : VarSet.t :=
   match e with
-  | e_lit _ => []
-  | e_var x => [x]
-  | e_add e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_minus e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_mult e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_div e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_lt e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_eq e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_and e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_or e1 e2 => (fvs e1) ++ (fvs e2)
-  | e_index e1 e2 => (fvs e1) ++ (fvs e2)
+  | e_lit _ => VarSet.empty
+  | e_var x => VarSet.singleton x
+  | e_add e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_minus e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_mult e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_div e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_lt e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_eq e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_and e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_or e1 e2 => VarSet.union (fvs e1) (fvs e2)
+  | e_index e1 e2 => VarSet.union (fvs e1) (fvs e2)
   | e_length e => fvs e
   end.
 
@@ -194,22 +194,22 @@ Inductive cmd : Type :=
 | i_while : expr -> cmd -> cmd
 | i_seq : cmd -> cmd -> cmd.
 
-Fixpoint mvs (c: cmd) : list var :=
+Fixpoint mvs (c: cmd) : VarSet.t :=
   match c with
-  | i_skip => []
+  | i_skip => VarSet.empty
   | i_base_instr bi =>
     match bi with
-    | bi_assign x _ => [x]
-    | bi_laplace x _ _ => [x]
-    | bi_index_assign x _ _ => [x]
-    | bi_length_assign x _ => [x]
+    | bi_assign x _ => VarSet.singleton x
+    | bi_laplace x _ _ => VarSet.singleton x
+    | bi_index_assign x _ _ => VarSet.singleton x
+    | bi_length_assign x _ => VarSet.singleton x
     end
   | i_cond _ c1 c2 =>
-    mvs c1 ++ mvs c2
+    VarSet.union (mvs c1) (mvs c2)
   | i_while _ c =>
     mvs c
   | i_seq c1 c2 =>
-    mvs c1 ++ mvs c2
+    VarSet.union (mvs c1) (mvs c2)
   end.
 
 Lemma cmd_eqdec : forall c1 c2: cmd,

@@ -1224,10 +1224,10 @@ Lemma mvs_inf_sound:
     welltyped stenv c
     -> (stenv ⊕ stenv |- c ~_(0%R) c
                        : denote_env senv ==> denote_env
-                                    (List.fold_right
+                                    (VarSet.fold
                                        (fun x senv => env_update x senv None)
-                                       senv
-                                       (mvs c)))%triple.
+                                       (mvs c)
+                                       senv))%triple.
 Proof.
 Admitted.
 
