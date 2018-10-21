@@ -603,6 +603,14 @@ Ltac inv_matches :=
            => inv H
          end.
 
+Ltac inv_welltyped :=
+  match goal with
+  | [ H : welltyped ?stenv ?c |- _ ]
+    => inv H
+  | [ H : welltyped_expr ?stenv ?e ?t |- _ ]
+    => inv H
+  end.
+
 Ltac collapse_dup_MapsTo :=
   match goal with
   | [ H1 : VarMap.MapsTo ?x ?e1 ?m,
@@ -915,11 +923,8 @@ Definition guard {P Q} (b : {P} + {Q}) : option Datatypes.unit :=
 Definition guardb (b: bool): option Datatypes.unit :=
   if b then Some tt else None.
 
-Definition is_array (t : tau) :=
-  match t with
-  | t_arr _ => true
-  | _ => false
-  end.
+Definition var_neqdec (v1 v2: var) : {v1 <> v2} + {v1 = v2}
+  := Sumbool.sumbool_not (v1 = v2) (v1 <> v2) (var_eqdec v1 v2).
 
 Definition simple_arr_map_func: typing_rule_func :=
   fun uenv senv stenv =>
@@ -941,6 +946,9 @@ Definition simple_arr_map_func: typing_rule_func :=
            _ <-- guardb (is_array t_arr_in) ;;;
            arr_out_ur <-- BaseDefinitions.VarMap.find "?arr_out" uenv ;;;
            arr_out <-- try_get_variable arr_out_ur ;;;
+           t_arr_out <-- VarMap.find arr_out stenv ;;;
+           _ <-- guardb (is_array t_arr_out) ;;;
+           _ <-- guard (var_neqdec arr_in arr_out) ;;;
            let prog := (
                  idx <- 0%Z ;;
                  len(arr_out) <- len(arr_in) ;;
@@ -999,52 +1007,246 @@ Proof.
   replace (VarMap.find "?arr_out" uenv) with (Some (uni_variable v0)) in Henvs; auto.
   replace (VarMap.find "?e" uenv) with (Some (uni_expr e4)) in Henvs; auto.
   simpl in Henvs.
-  step_envs (VarMap.find v senv) Henvs.
+  rename e4 into e.
+  rename v into idx.
+  rename v7 into arr_in.
+  rename v0 into arr_out.
+  rename v1 into temp.
+  step_envs (VarMap.find idx senv) Henvs.
   step_envs (z =? 0)%Z Henvs.
-  step_envs (VarSet.equal (fvs e4) (VarSet.singleton v1)) Henvs.
-  step_envs (VarMap.find v7 stenv) Henvs.
-  step_envs (is_array t) Henvs.
-  remember (v <- 0%Z ;;
-            len( v0)<- len(v7) ;;
-            While (v :< len(v7) )%expr do
-              (v1 <- v7 !! v);;
-              (at( v0, v)<- e4);;
-              v <- v :+ 1%Z
+  step_envs (VarSet.equal (fvs e) (VarSet.singleton temp)) Henvs.
+  step_envs (VarMap.find arr_in stenv) Henvs.
+  rename t into t_in.
+  rename H3 into Ht_arr_in.
+  step_envs (is_array t_in) Henvs.
+  rename H3 into Ht_in.
+  step_envs (VarMap.find arr_out stenv) Henvs.
+  rename H3 into Ht_arr_out.
+  rename t into t_out.
+  step_envs (is_array t_out) Henvs.
+  rename H3 into Ht_out.
+  step_envs (var_neqdec arr_in arr_out) Henvs.
+  clear H3.
+  remember (idx <- 0%Z ;;
+            len(arr_out)<- len(arr_in) ;;
+            While (idx :< len(arr_in) )%expr do
+              (temp <- arr_in !! idx);;
+              (at(arr_out, idx)<- e);;
+              idx <- idx :+ 1%Z
             end)%cmd as prog.
   step_envs (welltyped_cmd_compute stenv prog) Henvs.
-  step_envs (env_get v7 senv) Henvs.
-  remember (env_set v1 senv 1%Z) as senv'.
-  step_envs (sens_expr senv' stenv e4) Henvs.
+  rename H3 into Htyped.
+  step_envs (env_get arr_in senv) Henvs.
+  remember (env_set temp senv 1%Z) as senv'.
+  step_envs (sens_expr senv' stenv e) Henvs.
   inv Henvs.
   constructor; auto.
   simpl.
   rewrite RMicromega.IQR_0.
   replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
-  rewrite <- welltyped_iff in H7.
+  rewrite <- welltyped_iff in Htyped.
+  rewrite is_array_prop in Ht_in, Ht_out.
+  destruct Ht_in as [t_in' Ht_in']; subst.
+  destruct Ht_out as [t_out' Ht_out']; subst.
+  (* We need to introduce the condition right before eapply conseq because of
+  the ordering of variable declaration matters *)
+  remember (
+      (fun m1 m2 =>
+         VarMap.MapsTo idx (v_int 0%Z) m1
+         /\ VarMap.MapsTo idx (v_int 0%Z) m2
+         /\ denote_env (env_set idx senv 0%Z) m1 m2)
+      : memory_relation) as cond1.
+  remember (
+      (fun m1 m2 =>
+         exists arr1' arr2' in_arr1 in_arr2,
+           VarMap.MapsTo arr_out (v_arr t_out' arr1') m1
+           /\ VarMap.MapsTo arr_out (v_arr t_out' arr2') m2
+           /\ VarMap.MapsTo arr_in (v_arr t_in' in_arr1) m1
+           /\ VarMap.MapsTo arr_in (v_arr t_in' in_arr2) m2
+           /\ val_arr_length arr1' = val_arr_length in_arr1
+           /\ val_arr_length arr2' = val_arr_length in_arr2
+      )
+      : memory_relation) as cond2.
   eapply aprhl_seq; auto;
-    try (solve [inv H7; auto] ).
-  eapply aprhl_conseq; auto;
-    try (solve [inv H7; auto] ).
-  apply aprhl_assign; auto;
-    try (solve [inv H7; auto] ).
-  - (* Here we instantiate the precondition before entering the loop *)
-    intros m1 m2 Hm1t Hm2t Hm1m2.
+    try (solve [inv Htyped; auto] ).
+  eapply aprhl_conseq;
+    try (solve [inv Htyped; auto] ); auto.
+  apply aprhl_assign;
+    try (solve [inv Htyped; auto] ); auto.
+  - (* Instantiate the pre-condition for the while loops *)
+    intros m1 m2 Hm1 Hm2 Hm1m2.
     simpl. unfold assign_sub_left, assign_sub_right.
     intros [v_idx2 Hv_idx2]. inv Hv_idx2. simpl.
     intros [v_idx1 Hv_idx1]. inv Hv_idx1. simpl.
     unfold mem_set in *.
-    instantiate
-      (1 := fun m1 m2 => VarMap.MapsTo v (v_int 0%Z) m1
-                      /\ VarMap.MapsTo v (v_int 0%Z) m2
-                      /\ denote_env (env_set v senv 0%Z) m1 m2).
-    simpl.
+    instantiate (1 := cond1).
     repeat split;
       try (solve [apply VarMap.add_1; auto] ).
     apply denote_env_update; auto.
   - intros m1 m2 Hm1 Hm2 Hm1m2.
     apply Hm1m2.
   - fourier.
-  -
+  - replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
+    eapply aprhl_seq; auto;
+      try (solve [do 2 inv_welltyped; auto] ).
+    eapply aprhl_conseq;
+      try (solve [do 2 inv_welltyped; auto] ).
+    apply aprhl_len_assign; auto;
+      try (solve [do 2 inv_welltyped; auto] ).
+    + intros m1 m2 Hm1 Hm2 Hm1m2.
+      unfold assign_len_sub_left, assign_len_sub_right.
+      intros [len2 Hlen2]. intros [t2 [arr2 Harr2] ].
+      rewrite Hlen2. rewrite Harr2.
+      assert (Hlen2_pos: (0 <= len2)%Z).
+      {
+        simpl in Hlen2.
+        destruct (VarMap.find arr_in m2) as [v_arr_in|] eqn:Harr_in;
+          try (solve [do 3 inv_welltyped; auto] );
+          try (solve [inv Hlen2; auto] ).
+        assert (welltyped_val v_arr_in (t_arr t_in')).
+        {
+          apply VarMap.find_2 in Harr_in.
+          apply VarMap.find_2 in Ht_arr_in.
+          apply welltyped_memory_val with (env := stenv) (m := m2) (x := arr_in); auto.
+        }
+        inv H7.
+        - inv Hlen2.
+          apply val_arr_length_positive with (vs := v_nil); auto.
+        - inv Hlen2.
+          apply val_arr_length_positive with (vs := (v_cons v vs)); auto.
+      }
+      assert (Harr2': exists arr2', val_arr_update_length t2 arr2 len2 = Some arr2').
+      {
+        apply val_arr_update_length_pos; auto.
+      }
+      destruct Harr2' as [arr2' Harr2'].
+      rewrite Harr2'.
+      intros [len1 Hlen1]. intros [t1 [arr1 Harr1] ].
+      rewrite Hlen1. rewrite Harr1.
+      assert (Hlen1_pos: (0 <= len1)%Z).
+      {
+        simpl in Hlen1.
+        destruct (VarMap.find arr_in m1) as [v_arr_in|] eqn:Harr_in;
+          try (solve [do 3 inv_welltyped; auto|inv Hlen1] ).
+        assert (welltyped_val v_arr_in (t_arr t_in')). {
+          apply VarMap.find_2 in Harr_in.
+          apply VarMap.find_2 in Ht_arr_in.
+          apply welltyped_memory_val with (env := stenv) (m := m1) (x := arr_in); auto.
+        }
+        inv H7.
+        - inv Hlen1.
+          apply val_arr_length_positive with (vs := v_nil); auto.
+        - inv Hlen1.
+          apply val_arr_length_positive with (vs := v_cons v vs); auto.
+      }
+      assert (Harr1': exists arr1', val_arr_update_length t1 arr1 len1 = Some arr1').
+      {
+        apply val_arr_update_length_pos; auto.
+      }
+      destruct Harr1' as [arr1' Harr1'].
+      rewrite Harr1'.
+      instantiate (1 := fun m1 m2 => cond1 m1 m2 /\ cond2 m1 m2).
+      simpl.
+      split; auto.
+      ++ rewrite Heqcond1.
+         unfold mem_set.
+         assert (H_idx_neq_arr_out: idx <> arr_out).
+         { admit. }
+         rewrite Heqcond1 in Hm1m2.
+         destruct Hm1m2 as [Hm1m2_1 [Hm1m2_2 Hm1m2_3] ].
+         repeat split;
+           try (apply VarMap.add_2; auto).
+         (* TODO: fix this *)
+         admit.
+      ++ rewrite Heqcond2.
+         assert (Ht1_eq_t2: t1 = t2).
+         {
+           do 2 inv_welltyped.
+           inv H13.
+           assert (welltyped_val (v_arr t1 arr1) (t_arr t)).
+           {
+             apply VarMap.find_2 in Harr1.
+             apply welltyped_memory_val with (env := stenv) (m := m1) (x := arr_out); auto.
+           }
+           assert (welltyped_val (v_arr t2 arr2) (t_arr t)).
+           {
+             apply VarMap.find_2 in Harr2.
+             apply welltyped_memory_val with (env := stenv) (m := m2) (x := arr_out); auto.
+           }
+           inv H7; inv H8; auto.
+           apply VarMap.find_1 in H12.
+           rewrite H12 in Ht_arr_out. inv Ht_arr_out.
+         }
+         subst.
+         assert (Ht2_eq_t_out': t2 = t_out').
+         {
+           assert (welltyped_val (v_arr t2 arr1) (t_arr t_out')).
+           {
+             apply VarMap.find_2 in Ht_arr_out.
+             apply VarMap.find_2 in Harr1.
+             apply welltyped_memory_val with (env := stenv) (m := m1) (x := arr_out); auto.
+           }
+           inv H7; auto.
+         }
+         subst.
+         exists arr1', arr2'.
+         simpl in Hlen1, Hlen2.
+         destruct (VarMap.find arr_in m1) as [v_arr_in1|] eqn:Hv_arr_in1;
+           try (solve [inv Hlen1] ).
+         destruct (VarMap.find arr_in m2) as [v_arr_in2|] eqn:Hv_arr_in2;
+           try (solve [inv Hlen2] ).
+         assert (Ht_v_arr_in1: welltyped_val v_arr_in1 (t_arr t_in')).
+         {
+           apply VarMap.find_2 in Ht_arr_in.
+           apply VarMap.find_2 in Hv_arr_in1.
+           apply welltyped_memory_val with (env := stenv) (m := m1) (x := arr_in); auto.
+         }
+         assert (Ht_v_arr_in2: welltyped_val v_arr_in2 (t_arr t_in')).
+         {
+           apply VarMap.find_2 in Ht_arr_in.
+           apply VarMap.find_2 in Hv_arr_in2.
+           apply welltyped_memory_val with (env := stenv) (m := m2) (x := arr_in); auto.
+         }
+         apply welltyped_arr_elim in Ht_v_arr_in1.
+         apply welltyped_arr_elim in Ht_v_arr_in2.
+         destruct Ht_v_arr_in1 as [v_arr_in1' Hv_arr_in1'].
+         destruct Ht_v_arr_in2 as [v_arr_in2' Hv_arr_in2'].
+         subst.
+         inv Hlen1; inv Hlen2.
+         exists v_arr_in1', v_arr_in2'.
+         unfold mem_set.
+         apply VarMap.find_2 in Hv_arr_in1.
+         apply VarMap.find_2 in Hv_arr_in2.
+         repeat split;
+           (try solve[apply VarMap.add_1; auto|apply VarMap.add_2; auto] ).
+         apply val_arr_update_length_correct with (t := t_out') (vs := arr1); auto.
+         apply val_arr_update_length_correct with (t := t_out') (vs := arr2); auto.
+    + simpl.
+      intros m1 m2 Hm1 Hm2.
+      intros Hm1m2.
+      apply Hm1m2.
+    + fourier.
+    + clear H2 H16 H4 H6 H9.
+      remember (
+          While (idx :< len(arr_in) )%expr do
+              (temp <- arr_in !! idx);;
+              (at(arr_out, idx)<- e);;
+              idx <- idx :+ 1%Z
+            end
+        )%cmd as loop.
+      apply aprhl_equiv with (c1 := loop) (c1' := (loop ;; i_skip)%cmd)
+                             (c2 := loop) (c2' := (i_skip ;; loop)%cmd);
+        try (solve [do 2 inv_welltyped; auto] );
+        auto.
+      replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
+      eapply aprhl_seq; auto;
+        try (solve [do 2 inv_welltyped; auto] ).
+      rewrite Heqloop.
+      eapply aprhl_while_L; auto;
+        try (solve [do 2 inv_welltyped; auto] ).
+      (* The loop invariant here is just that arr_out contains a partial result
+         of the array map *)
+
 
 Definition is_None (o : option cmd) :=
   match o with

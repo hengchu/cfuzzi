@@ -77,6 +77,12 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
   Parameter deno : cmd -> memory -> distr memory.
   Notation "'[[' c ']]'" := (deno c) (at level 65).
 
+  Parameter append_skip_equiv1: forall c m,
+      eq_distr ([[ c ]] m) ([[ i_skip ;; c ]] m)%cmd.
+
+  Parameter append_skip_equiv2: forall c m,
+    eq_distr ([[ c ]] m) ([[ c ;; i_skip ]] m)%cmd.
+
   Definition lossless (c : cmd) :=
     forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.
 
@@ -719,6 +725,19 @@ Definition deno (c: cmd) (m: memory) :=
   mu_lub (step_star m c) (step_star_monotonic c m).
 
 Notation "'[[' c ']]'" := (deno c) (at level 65).
+
+Lemma append_skip_equiv1: forall c m,
+    eq_distr ([[ c ]] m) ([[ i_skip ;; c ]] m)%cmd.
+Proof.
+Admitted.
+
+Lemma append_skip_equiv2: forall c m,
+    eq_distr ([[ c ]] m) ([[ c ;; i_skip ]] m)%cmd.
+Proof.
+Admitted.
+
+Hint Resolve append_skip_equiv1.
+Hint Resolve append_skip_equiv2.
 
 Definition lossless (c : cmd) :=
   forall m, mu ([[ c ]] m) (fun _ => 1%U) == 1%U.

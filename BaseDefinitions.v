@@ -204,6 +204,91 @@ Definition val_arr_update_length (t : tau) (vs : val_arr) (len: Z): option val_a
   | Zneg _ => None
   end.
 
+Lemma val_arr_length_positive: forall vs len,
+    val_arr_length vs = len
+    -> (0 <= len)%Z.
+Proof.
+  intros vs len Hlen.
+  unfold val_arr_length in Hlen.
+  rewrite <- Hlen.
+  omega.
+Qed.
+
+Lemma val_arr_update_length_pos: forall t vs len,
+    (0 <= len)%Z
+    -> exists vs', val_arr_update_length t vs len = Some vs'.
+Proof.
+  intros t vs len Hlen_pos.
+  assert (Z0 = len \/ exists len_pos, Zpos len_pos = len).
+  {
+    destruct len eqn:Hlen.
+    left; auto.
+    right. exists p; auto.
+    exfalso. apply Hlen_pos. auto.
+  }
+  destruct H.
+  - subst. exists v_nil.
+    destruct vs; auto.
+  - destruct H as [len_pos Hlen_pos2].
+    unfold val_arr_update_length.
+    exists (val_arr_update_length_nat t vs (Pos.to_nat len_pos)).
+    subst.
+    auto.
+Qed.
+
+Lemma val_arr_length_from_list:
+  forall l, val_arr_length_nat (val_arr_from_list l) = List.length l.
+Proof.
+  induction l.
+  - reflexivity.
+  - simpl. rewrite IHl; auto.
+Qed.
+
+Lemma val_arr_update_length_nat_correct: forall t vs vs' len,
+    val_arr_update_length_nat t vs len = vs'
+    -> val_arr_length_nat vs' = len.
+Proof.
+  intros t vs vs' len Hlen.
+  generalize dependent len.
+  generalize dependent vs'.
+  induction vs.
+  - intros vs' len Hlen.
+    simpl in Hlen.
+    destruct len.
+    + subst. auto.
+    + subst. rewrite val_arr_length_from_list.
+      simpl. f_equal.
+      rewrite repeat_length.
+      auto.
+  - intros vs' len Hlen.
+    simpl in Hlen.
+    destruct len.
+    + subst. auto.
+    + subst. simpl.
+      f_equal.
+      remember (val_arr_update_length_nat t vs len) as vs'.
+      apply IHvs; auto.
+Qed.
+
+Lemma val_arr_update_length_correct: forall t vs vs' len,
+    val_arr_update_length t vs len = Some vs'
+    -> val_arr_length vs' = len.
+Proof.
+  intros t vs vs' len Hlen.
+  unfold val_arr_update_length in Hlen.
+  unfold val_arr_length.
+  destruct len.
+  - inversion Hlen. erewrite val_arr_update_length_nat_correct; eauto.
+    reflexivity.
+  - inversion Hlen. erewrite val_arr_update_length_nat_correct; eauto.
+    rewrite positive_nat_Z; auto.
+  - inversion Hlen.
+Qed.
+
+Hint Resolve val_arr_length_positive.
+Hint Resolve val_arr_update_length_pos.
+Hint Resolve val_arr_update_length_correct.
+
 Definition var := string.
 
 Module StringDec <: DecidableType.

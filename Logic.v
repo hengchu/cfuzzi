@@ -134,7 +134,7 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
     exists z, sem_expr m e = Some (v_int z).
 
   Definition some_arr_var (m: memory) (x: var) :=
-    exists t arr, VarMap.find x m = Some (v_arr (t_arr t) arr).
+    exists t arr, VarMap.find x m = Some (v_arr t arr).
 
   Definition assign_len_sub_left
              (P: memory_relation)
@@ -146,10 +146,10 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
         some_arr_var m1 x ->
         match sem_expr m1 e,
               VarMap.find x m1 with
-        | Some (v_int z), Some (v_arr (t_arr t) arr) =>
+        | Some (v_int z), Some (v_arr t arr) =>
           match val_arr_update_length t arr z with
           | Some varr'
-            => P (mem_set x (v_arr (t_arr t) varr') m1) m2
+            => P (mem_set x (v_arr t varr') m1) m2
           | None
             => False
           end
@@ -166,10 +166,10 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
         some_arr_var m2 x ->
         match sem_expr m2 e,
               VarMap.find x m2 with
-        | Some (v_int z), Some (v_arr (t_arr t) arr) =>
+        | Some (v_int z), Some (v_arr t arr) =>
           match val_arr_update_length t arr z with
           | Some varr'
-            => P m1 (mem_set x (v_arr (t_arr t) varr') m2)
+            => P m1 (mem_set x (v_arr t varr') m2)
           | None
             => False
           end

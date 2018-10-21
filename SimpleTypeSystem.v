@@ -17,6 +17,22 @@ Inductive welltyped_val : val -> tau -> Prop :=
                                  -> welltyped_val (v_bag t vs) (t_bag t)
                                  -> welltyped_val (v_bag t (v_cons v vs)) (t_bag t).
 
+Lemma welltyped_arr_elim:
+  forall v t, welltyped_val v (t_arr t)
+         -> exists vs, v = v_arr t vs.
+Proof.
+  intros v t Htyped.
+  remember (t_arr t) as t'.
+  generalize dependent t.
+  induction Htyped;
+    try (intros t0 contra; inversion contra).
+  - exists v_nil; auto.
+  - destruct (IHHtyped2 t0) as [vs' Hvs']; auto.
+    subst.
+    exists (v_cons v vs').
+    inversion Hvs'; subst; auto.
+Qed.
+
 Lemma tau_default_welltyped :
   forall t, welltyped_val (tau_default_val t) t.
 Proof.
@@ -875,3 +891,27 @@ Proof.
   - right; intros contra.
     apply welltyped_iff in contra. rewrite Htyped in contra; inversion contra.
 Defined.
+
+Definition is_array (t : tau) :=
+  match t with
+  | t_arr _ => true
+  | _ => false
+  end.
+
+Lemma is_array_prop: forall t,
+    is_array t = true <-> exists t', t = t_arr t'.
+Proof.
+  destruct t.
+  - split.
+    + intros contra; inversion contra.
+    + intros contra; destruct contra. inversion H.
+  - split.
+    + intros contra; inversion contra.
+    + intros contra; destruct contra. inversion H.
+  - split.
+    + intros H. exists t; auto.
+    + intros [t' Ht']. auto.
+  - split.
+    + intros contra; inversion contra.
+    + intros contra; destruct contra. inversion H.
+Qed.
