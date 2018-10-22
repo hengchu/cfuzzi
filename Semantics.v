@@ -42,6 +42,13 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
 
   Parameter sem_expr : memory -> expr -> option val.
 
+  Parameter sem_expr_singleton_fvs:
+    forall stenv e x t,
+      welltyped_expr stenv e t
+      -> VarSet.Subset (fvs e) (VarSet.singleton x)
+      -> exists f, forall m v, VarMap.MapsTo x v m
+                    -> sem_expr m e = f v.
+
   Parameter sem_expr_val_typed : forall env m e v t,
     welltyped_expr env e t
     -> sem_expr m e = Some v
@@ -213,6 +220,361 @@ Fixpoint sem_expr (m : memory) (e : expr) : option val :=
     | _ => None
     end
   end.
+
+Lemma sem_expr_singleton_fvs:
+  forall stenv e x t,
+    welltyped_expr stenv e t
+    -> VarSet.Subset (fvs e) (VarSet.singleton x)
+    -> exists f, forall m v, VarMap.MapsTo x v m
+                -> sem_expr m e = f v.
+Proof.
+  intros stenv e x t Htyped Hfvs.
+  induction Htyped.
+  - simpl in *. unfold VarSet.Subset in Hfvs.
+    exists (fun _ => Some (v_int z)).
+    intros m vm Hxvm. auto.
+  - simpl in *.
+    unfold VarSet.Subset in Hfvs.
+    exists (fun x => Some x).
+    intros m v Hxvm.
+    apply VarMap.find_1 in Hxvm.
+    assert (x = x0).
+    {
+      apply VarSet.singleton_1; auto.
+      apply Hfvs.
+      apply VarSet.singleton_2; auto.
+    }
+    subst.
+    rewrite Hxvm; auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_int (z1 + z2)%Z)
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_int (z1 - z2)%Z)
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_int (z1 * z2)%Z)
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_int (z1 / z2)%Z)
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_bool (z1 <? z2)%Z)
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H0) as [f1 Hf1].
+    destruct (IHHtyped2 H1) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_int z1), Some (v_int z2)
+           => Some (v_bool (z1 =? z2)%Z)
+         | Some (v_bool b1), Some (v_bool b2)
+           => Some (v_bool (eqb b1 b2))
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_bool b1), Some (v_bool b2)
+           => Some (v_bool (andb b1 b2))
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v, f2 v with
+         | Some (v_bool b1), Some (v_bool b2)
+           => Some (v_bool (orb b1 b2))
+         | _, _
+           => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v with
+         | Some (v_arr _ vs)
+         | Some (v_bag _ vs) =>
+           match f2 v with
+           | Some (v_int idx) => val_arr_index vs idx
+           | _ => None
+           end
+         | _ => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    assert (VarSet.Subset (fvs e1) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_2; auto.
+    }
+    assert (VarSet.Subset (fvs e2) (VarSet.singleton x)).
+    {
+      unfold VarSet.Subset.
+      unfold VarSet.Subset in Hfvs.
+      intros a Ha.
+      apply Hfvs.
+      apply VarSet.union_3; auto.
+    }
+    destruct (IHHtyped1 H) as [f1 Hf1].
+    destruct (IHHtyped2 H0) as [f2 Hf2].
+    exists (fun v =>
+         match f1 v with
+         | Some (v_arr _ vs)
+         | Some (v_bag _ vs) =>
+           match f2 v with
+           | Some (v_int idx) => val_arr_index vs idx
+           | _ => None
+           end
+         | _ => None
+         end).
+    intros m v Hxvm.
+    simpl.
+    rewrite <- Hf1 with (m := m); auto.
+    rewrite <- Hf2 with (m := m); auto.
+  - simpl in Hfvs.
+    destruct (IHHtyped Hfvs) as [f Hf].
+    exists (fun v => match f v with
+             | Some (v_arr _ vs)
+             | Some (v_bag _ vs)
+               => Some (v_int (val_arr_length vs))
+             | _ => None
+             end).
+    intros m v Hxvm.
+    rewrite <- Hf with (m := m); auto.
+  - simpl in Hfvs.
+    destruct (IHHtyped Hfvs) as [f Hf].
+    exists (fun v => match f v with
+             | Some (v_arr _ vs)
+             | Some (v_bag _ vs)
+               => Some (v_int (val_arr_length vs))
+             | _ => None
+             end).
+    intros m v Hxvm.
+    rewrite <- Hf with (m := m); auto.
+Qed.
 
 Lemma sem_expr_val_typed : forall env m e v t,
     welltyped_expr env e t

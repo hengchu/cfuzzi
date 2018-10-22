@@ -948,6 +948,11 @@ Definition simple_arr_map_func: typing_rule_func :=
            arr_out <-- try_get_variable arr_out_ur ;;;
            t_arr_out <-- VarMap.find arr_out stenv ;;;
            _ <-- guardb (is_array t_arr_out) ;;;
+           t_e <-- welltyped_expr_compute stenv e ;;;
+           _ <-- guardb (match t_arr_out with
+                       | t_arr t' => if tau_eqdec t_e t' then true else false
+                       | _ => false
+                       end) ;;;
            _ <-- guard (var_neqdec arr_in arr_out) ;;;
            let prog := (
                  idx <- 0%Z ;;
@@ -1025,6 +1030,14 @@ Proof.
   rename t into t_out.
   step_envs (is_array t_out) Henvs.
   rename H3 into Ht_out.
+  step_envs (welltyped_expr_compute stenv e) Henvs.
+  rename H3 into Ht_e. rewrite <- welltyped_expr_iff in Ht_e.
+  rewrite is_array_prop in Ht_in, Ht_out.
+  destruct Ht_in as [t_in' Ht_in']; subst.
+  destruct Ht_out as [t_out' Ht_out']; subst.
+  step_envs (tau_eqdec t t_out') Henvs.
+  clear H3. rename e0 into Ht_eq_t_out'.
+  subst.
   step_envs (var_neqdec arr_in arr_out) Henvs.
   clear H3.
   remember (idx <- 0%Z ;;
@@ -1045,9 +1058,6 @@ Proof.
   rewrite RMicromega.IQR_0.
   replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
   rewrite <- welltyped_iff in Htyped.
-  rewrite is_array_prop in Ht_in, Ht_out.
-  destruct Ht_in as [t_in' Ht_in']; subst.
-  destruct Ht_out as [t_out' Ht_out']; subst.
   (* We need to introduce the condition right before eapply conseq because of
   the ordering of variable declaration matters *)
   remember (
@@ -1239,14 +1249,40 @@ Proof.
         try (solve [do 2 inv_welltyped; auto] );
         auto.
       replace (0%R) with (0 + 0)%R by (apply Rplus_0_r; auto).
-      eapply aprhl_seq; auto;
+      assert (Hsubset: VarSet.Subset (fvs e) (VarSet.singleton temp)).
+      {
+        apply VarSet.equal_2 in H1.
+        intros a.
+        destruct (H1 a).
+        apply H2.
+      }
+      destruct (sem_expr_singleton_fvs)
+        with (stenv := stenv) (e := e) (x := temp) (t := t_out') as [f_e Hf_e];
+        auto.
+      pose (inv :=
+              (fun m1 m2 =>
+                 forall v_idx v_arr_in v_arr_out,
+                   VarMap.MapsTo idx (v_int v_idx) m1
+                   -> VarMap.MapsTo arr_in (v_arr (t_arr t_in') v_arr_in) m1
+                   -> VarMap.MapsTo arr_out (v_arr (t_arr t_out') v_arr_out) m1
+                   -> M_option_bind
+                       (val_arr_subarr v_arr_in v_idx)
+                       (val_arr_map_option f_e)
+                     = val_arr_subarr v_arr_out v_idx) : memory_relation
+           ).
+      apply aprhl_seq with (Q := fun m1 m2 => cond1 m1 m2 /\ cond2 m1 m2 /\ inv m1 m2); auto;
         try (solve [do 2 inv_welltyped; auto] ).
       rewrite Heqloop.
+      apply aprhl_conseq
+        with (P' := fun m1 m2 => cond1 m1 m2 /\ cond2 m1 m2 /\ inv m1 m2)
+             (Q' := fun m1 m2 => (cond1 m1 m2 /\ cond2 m1 m2 /\ inv m1 m2) /\
+                              sem_expr m1 (idx :< len(arr_in))%expr = Some (v_bool false) )
+             (eps' := 0%R);
+        try (solve [do 2 inv_welltyped; auto] ).
       eapply aprhl_while_L; auto;
         try (solve [do 2 inv_welltyped; auto] ).
       (* The loop invariant here is just that arr_out contains a partial result
          of the array map *)
-
 
 Definition is_None (o : option cmd) :=
   match o with

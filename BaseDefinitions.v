@@ -204,6 +204,22 @@ Definition val_arr_update_length (t : tau) (vs : val_arr) (len: Z): option val_a
   | Zneg _ => None
   end.
 
+Fixpoint val_arr_map (f: val -> val) (vs: val_arr) :=
+  match vs with
+  | v_nil => v_nil
+  | v_cons x xs => v_cons (f x) (val_arr_map f xs)
+  end.
+
+Fixpoint val_arr_map_option (f: val -> option val) (vs: val_arr) :=
+  match vs with
+  | v_nil => Some v_nil
+  | v_cons x xs =>
+    match f x, val_arr_map_option f xs with
+    | Some v, Some vs => Some (v_cons v vs)
+    | _, _ => None
+    end
+  end.
+
 Lemma val_arr_length_positive: forall vs len,
     val_arr_length vs = len
     -> (0 <= len)%Z.
