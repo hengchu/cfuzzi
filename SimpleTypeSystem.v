@@ -172,9 +172,10 @@ Proof.
     destruct idx.
     + inversion Hupdate; subst; clear Hupdate.
       constructor; auto.
-    + destruct (val_arr_update_nat vs idx v) eqn:Htail; inversion Hupdate; subst; clear Hupdate.
+    + destruct (val_arr_update_nat vs idx v2)
+        as [tail|] eqn:Htail; inversion Hupdate; subst; clear Hupdate.
       constructor; auto.
-      apply IHHtyped2 with (vs0 := vs) (v := v) (idx := idx); auto.
+      apply IHHtyped2 with (vs0 := vs) (v := v2) (idx := idx); auto.
   - intros vs' t0 Htarr; inversion Htarr.
 Qed.
 
@@ -225,9 +226,9 @@ Proof.
     destruct idx.
     + inversion Hupdate; subst; clear Hupdate.
       constructor; auto.
-    + destruct (val_arr_update_nat vs idx v) eqn:Htail; inversion Hupdate; subst; clear Hupdate.
+    + destruct (val_arr_update_nat vs idx v2) eqn:Htail; inversion Hupdate; subst; clear Hupdate.
       constructor; auto.
-      apply IHHtyped2 with (vs0 := vs) (v := v) (idx := idx); auto.
+      apply IHHtyped2 with (vs0 := vs) (v := v2) (idx := idx); auto.
 Qed.
 
 Lemma val_bag_update_welltyped:

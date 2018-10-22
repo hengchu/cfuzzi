@@ -239,6 +239,18 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
       env1 ⊕ env2 |- (x1 <- e1) ~_(0%R) (x2 <- e2) :
         P L([x1 |-> e1]) R([x2 |-> e2]) ==> P.
 
+  Parameter aprhl_assign_L:
+    forall (env1 env2 : st_env) (x : var) (e : expr) P,
+      welltyped env1 (x <- e)%cmd ->
+      env1 ⊕ env2 |- (x <- e) ~_(0%R) (i_skip) :
+        P L([x |-> e]) ==> P.
+
+  Parameter aprhl_assign_R:
+    forall (env1 env2 : st_env) (x : var) (e : expr) P,
+      welltyped env2 (x <- e)%cmd ->
+      env1 ⊕ env2 |- (i_skip) ~_(0%R) (x <- e) :
+        P R([x |-> e]) ==> P.
+
   Parameter aprhl_len_assign:
     forall (env1 env2: st_env) (x1 x2: var) (e1 e2: expr) P,
       welltyped env1 (len(x1) <- e1)%cmd ->
@@ -246,12 +258,36 @@ Module Type APRHL(E: Embedding) (LAP: Laplace(E)).
       env1 ⊕ env2 |- (len(x1) <- e1) ~_(0%R) (len(x2) <- e2) :
        P L([len(x1) |-> e1]) R([len(x2) |-> e2]) ==> P.
 
+  Parameter aprhl_len_assign_L:
+    forall (env1 env2: st_env) (x : var) (e : expr) P,
+      welltyped env1 (len(x) <- e)%cmd ->
+      env1 ⊕ env2 |- (len(x) <- e) ~_(0%R) (i_skip) :
+       P L([len(x) |-> e]) ==> P.
+
+  Parameter aprhl_len_assign_R:
+    forall (env1 env2: st_env) (x : var) (e : expr) P,
+      welltyped env2 (len(x) <- e)%cmd ->
+      env1 ⊕ env2 |- (i_skip) ~_(0%R) (len(x) <- e):
+       P R([len(x) |-> e]) ==> P.
+
   Parameter aprhl_index_assign:
     forall (env1 env2: st_env) (x1 x2: var) (idx1 idx2: expr) (e1 e2: expr) P,
       welltyped env1 (at(x1, idx1) <- e1)%cmd ->
       welltyped env2 (at(x2, idx2) <- e2)%cmd ->
       env1 ⊕ env2 |- (at(x1, idx1) <- e1) ~_(0%R) (at(x2, idx2) <- e2) :
         P L([at(x1, idx1) |-> e1]) R([at(x2, idx2) |-> e2]) ==> P.
+
+  Parameter aprhl_index_assign_L:
+    forall (env1 env2: st_env) (x: var) (idx: expr) (e: expr) P,
+      welltyped env1 (at(x, idx) <- e)%cmd ->
+      env1 ⊕ env2 |- (at(x, idx) <- e) ~_(0%R) (i_skip):
+        P L([at(x, idx) |-> e]) ==> P.
+
+  Parameter aprhl_index_assign_R:
+    forall (env1 env2: st_env) (x: var) (idx: expr) (e: expr) P,
+      welltyped env1 (at(x, idx) <- e)%cmd ->
+      env1 ⊕ env2 |- (i_skip) ~_(0%R) (at(x, idx) <- e):
+        P R([at(x, idx) |-> e]) ==> P.
 
   Parameter aprhl_seq:
     forall (env env': st_env) (c1 c1' c2 c2': cmd) (P Q S : memory_relation) (eps eps' : R),
