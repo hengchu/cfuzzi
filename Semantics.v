@@ -42,6 +42,12 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
 
   Parameter sem_expr : memory -> expr -> option val.
 
+  Parameter sem_expr_strengthening:
+    forall stenv m e t y v_y,
+      welltyped_expr stenv e t
+      -> ~(VarSet.In y (fvs e))
+      -> sem_expr m e = sem_expr (VarMap.add y v_y m) e.
+
   Parameter sem_expr_singleton_fvs:
     forall stenv e x t,
       welltyped_expr stenv e t
@@ -220,6 +226,15 @@ Fixpoint sem_expr (m : memory) (e : expr) : option val :=
     | _ => None
     end
   end.
+
+(* Modifying the value of non-free variables in e doesn't change e's value *)
+Lemma sem_expr_strengthening:
+  forall stenv m e t y v_y,
+    welltyped_expr stenv e t
+    -> ~(VarSet.In y (fvs e))
+    -> sem_expr m e = sem_expr (VarMap.add y v_y m) e.
+Proof.
+  Admitted.
 
 Lemma sem_expr_singleton_fvs:
   forall stenv e x t,

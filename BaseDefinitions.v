@@ -346,6 +346,35 @@ Lemma val_arr_update_length_same:
 Proof.
   Admitted.
 
+Lemma val_arr_update_index_same:
+  forall idx vs v vs',
+    val_arr_update vs idx v = Some vs'
+    -> val_arr_index vs' idx = Some v.
+Proof.
+  Admitted.
+
+(* The val_arr_subarr function uses the second argument as the length of the
+   subarray starting from position 0, so updating the array would not change the
+   subarray at up to length idx.
+
+   This should really be a special case of a more
+   general lemma that says updates at any idx >= the length of the subarr will
+   not change the subarr
+*)
+Lemma val_arr_subarr_update:
+  forall vs idx v vs',
+    val_arr_update vs idx v = Some vs'
+    -> val_arr_subarr vs' idx = val_arr_subarr vs idx.
+Proof.
+Admitted.
+
+Lemma val_arr_subarr_range:
+  forall vs len,
+    (0 <= len <= val_arr_length vs)%Z
+    -> exists vs', val_arr_subarr vs len = Some vs'.
+Proof.
+Admitted.
+
 Fixpoint val_arr_update_length_nat (t : tau) (vs: val_arr) (len: nat): val_arr :=
   match vs, len with
   | _, O => v_nil
