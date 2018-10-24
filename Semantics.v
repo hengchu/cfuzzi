@@ -61,6 +61,29 @@ Module Type SEM (E : Embedding) (LAP : Laplace(E)).
     -> welltyped_memory env m
     -> welltyped_val v t.
 
+  Fixpoint lossless_compute (e: expr) : bool :=
+    match e with
+    | e_lit _ => true
+    | e_var _ => true
+    | e_add e1 e2
+    | e_minus e1 e2
+    | e_mult e1 e2
+    | e_div e1 e2
+    | e_lt e1 e2
+    | e_eq e1 e2
+    | e_and e1 e2
+    | e_or e1 e2 => lossless_compute e1 && lossless_compute e2
+    | e_length e => lossless_compute e
+    | _ => false
+    end.
+
+  Parameter lossless_compute_sound:
+    forall e, lossless_compute e = true
+         -> (forall stenv m t,
+               welltyped_memory stenv m
+               -> welltyped_expr stenv e t
+               -> exists v, sem_expr m e = Some v).
+
   Parameter step_base_instr : memory -> base_instr -> distr memory.
   Parameter step_cmd : memory -> cmd -> distr (cmd * memory).
 
@@ -714,6 +737,224 @@ Proof.
     destruct ev eqn:Hev; try (solve [inversion Hv]); inv Hv; subst.
     + constructor.
     + constructor.
+Qed.
+
+Fixpoint lossless_compute (e: expr) : bool :=
+  match e with
+  | e_lit _ => true
+  | e_var _ => true
+  | e_add e1 e2
+  | e_minus e1 e2
+  | e_mult e1 e2
+  | e_div e1 e2
+  | e_lt e1 e2
+  | e_eq e1 e2
+  | e_and e1 e2
+  | e_or e1 e2 => lossless_compute e1 && lossless_compute e2
+  | e_length e => lossless_compute e
+  | _ => false
+  end.
+
+Lemma lossless_compute_sound:
+  forall e, lossless_compute e = true
+       -> (forall stenv m t,
+             welltyped_memory stenv m
+             -> welltyped_expr stenv e t
+             -> exists v, sem_expr m e = Some v).
+Proof.
+  intros e Hlossless.
+  intros stenv m t Hmt Het.
+  induction Het.
+  - simpl. exists z; auto.
+  - apply Hmt in H.
+    destruct H as [v [Hv Hvt] ].
+    apply VarMap.find_1 in Hv.
+    exists v. simpl. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (z + z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (z - z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (z * z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (z / z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_int).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (z <? z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H0 as [He1 He2].
+    destruct H as [Ht_int | Ht_bool].
+    + subst.
+      destruct IHHet1 as [v1 Hv1]; auto.
+      destruct IHHet2 as [v2 Hv2]; auto.
+      assert (welltyped_val v1 t_int).
+      {
+        eapply sem_expr_val_typed with (e := e1); eauto.
+      }
+      assert (welltyped_val v2 t_int).
+      {
+        eapply sem_expr_val_typed with (e := e2); eauto.
+      }
+      inv H; inv H0.
+      exists (z =? z0)%Z. simpl. rewrite Hv1, Hv2. auto.
+    + subst.
+      destruct IHHet1 as [v1 Hv1]; auto.
+      destruct IHHet2 as [v2 Hv2]; auto.
+      assert (welltyped_val v1 t_bool).
+      {
+        eapply sem_expr_val_typed with (e := e1); eauto.
+      }
+      assert (welltyped_val v2 t_bool).
+      {
+        eapply sem_expr_val_typed with (e := e2); eauto.
+      }
+      inv H; inv H0.
+      exists (eqb b b0)%Z. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_bool).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_bool).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (b && b0)%bool. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless.
+    assert (true = lossless_compute e1 /\ true = lossless_compute e2).
+    {
+      apply andb_true_eq; auto.
+    }
+    destruct H as [He1 He2].
+    destruct IHHet1 as [v1 Hv1]; auto.
+    destruct IHHet2 as [v2 Hv2]; auto.
+    assert (welltyped_val v1 t_bool).
+    {
+      eapply sem_expr_val_typed with (e := e1); eauto.
+    }
+    assert (welltyped_val v2 t_bool).
+    {
+      eapply sem_expr_val_typed with (e := e2); eauto.
+    }
+    inv H; inv H0.
+    exists (b || b0)%bool. simpl. rewrite Hv1, Hv2. auto.
+  - simpl in Hlossless. inv Hlossless.
+  - simpl in Hlossless. inv Hlossless.
+  - simpl in Hlossless.
+    destruct IHHet as [v Hv]; auto.
+    simpl.
+    assert (welltyped_val v (t_arr t)).
+    {
+      eapply sem_expr_val_typed with (e := e); eauto.
+    }
+    apply welltyped_arr_elim in H.
+    destruct H as [varr Hvarr].
+    exists (val_arr_length varr).
+    rewrite Hv. rewrite Hvarr.
+    auto.
+  - simpl in Hlossless.
+    destruct IHHet as [v Hv]; auto.
+    simpl.
+    assert (welltyped_val v (t_bag t)).
+    {
+      eapply sem_expr_val_typed with (e := e); eauto.
+    }
+    apply welltyped_bag_elim in H.
+    destruct H as [varr Hvarr].
+    exists (val_arr_length varr).
+    rewrite Hv. rewrite Hvarr.
+    auto.
 Qed.
 
 Lemma IZR_gt_0: forall {z}, (z > 0)%Z -> (IZR z > 0)%R.

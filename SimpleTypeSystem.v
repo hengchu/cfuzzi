@@ -33,6 +33,22 @@ Proof.
     inversion Hvs'; subst; auto.
 Qed.
 
+Lemma welltyped_bag_elim:
+  forall v t, welltyped_val v (t_bag t)
+         -> exists vs, v = v_bag t vs.
+Proof.
+  intros v t Htyped.
+  remember (t_bag t) as t'.
+  generalize dependent t.
+  induction Htyped;
+    try (intros t0 contra; inversion contra).
+  - exists v_nil; auto.
+  - destruct (IHHtyped2 t0) as [vs' Hvs']; auto.
+    subst.
+    exists (v_cons v vs').
+    inversion Hvs'; subst; auto.
+Qed.
+
 Lemma tau_default_welltyped :
   forall t, welltyped_val (tau_default_val t) t.
 Proof.

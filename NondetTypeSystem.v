@@ -917,21 +917,7 @@ Definition simple_arr_map_pat :=
    end
   )%pat.
 
-Definition lossless_compute (e: expr) : bool := false.
-Lemma lossless_compute_sound:
-  forall e, lossless_compute e = true
-       -> (forall stenv m t,
-             welltyped_memory stenv m
-             -> welltyped_expr stenv e t
-             -> exists v, sem_expr m e = Some v).
-Proof.
-  intros e Hlossless.
-  unfold lossless_compute in Hlossless.
-  inv Hlossless.
-Qed.
-
 Arguments lossless_compute : simpl never.
-Opaque lossless_compute.
 
 Definition guard {P Q} (b : {P} + {Q}) : option Datatypes.unit :=
   if b then Some tt else None.
