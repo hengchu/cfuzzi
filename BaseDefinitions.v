@@ -5,6 +5,7 @@ Require Export Program.
 Require Export FMapWeakList.
 Require Export FSetWeakList.
 Require Export Coq.FSets.FMapInterface.
+Require Import Cfuzzi.Tactics.CpdtTactics.
 
 Inductive tau :=
 | t_int
@@ -22,23 +23,7 @@ Fixpoint tau_denote (t : tau) : Set :=
 
 Lemma tau_eqdec: forall (t t' : tau), {t = t'} + {t <> t'}.
 Proof.
-  intros t.
-  induction t; destruct t';
-  repeat match goal with
-         | [ |- {t_int = t_int} + {?P} ] => left; auto
-         | [ |- {t_int = ?X } + {t_int <> ?X}] => right; intros contra; inversion contra
-         | [ |- {t_bool = t_bool} + {?P} ] => left; auto
-         | [ |- {t_bool = ?X } + {t_bool <> ?X}] => right; intros contra; inversion contra
-         | [ IH : forall t2, {?t1 = t2} + {?t1 <> t2 }
-             |- {t_arr ?t1 = t_arr ?t2} + {t_arr ?t1 <> t_arr ?t2}] => idtac IH
-         | [ |- {t_arr ?t1 = ?X} + {t_arr ?t1 <> ?X}] => right; intros contra; inversion contra
-         | [ IH : forall t2, {?t1 = t2} + {?t1 <> t2 }
-             |- {t_bag ?t1 = t_bag ?t2} + {t_bag ?t1 <> t_bag ?t2}] => idtac IH
-         | [ |- {t_bag ?t1 = ?X} + {t_bag ?t1 <> ?X}] => right; intros contra; inversion contra
-         end;
-  (destruct (IHt t');
-   [ left; f_equal; auto
-   | right; intros contra; inversion contra; apply n; auto]).
+  decide equality.
 Defined.
 
 Fixpoint tau_denote_eqdec (t : tau) : forall (x y : tau_denote t), {x = y} + {x <> y} :=

@@ -1,4 +1,6 @@
 -Q . Cfuzzi
+-Q Monads Cfuzzi.Monads
+-Q Tactics Cfuzzi.Tactics
 -R ../random Random
 
 Logic.v
@@ -14,3 +16,5 @@ DecExt.v
 KitchenSink.v
 Pattern.v
 NondetTypeSystem.v
+Tactics/CpdtTactics.v
+Monads/Monad.v
